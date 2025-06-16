@@ -52,3 +52,7 @@ class VerifyTokenResponse(BaseModel):
     status: str
     message: str
     user: UserResponseSchema
+
+class LogoutResponse(BaseModel):
+    status: str
+    message: str

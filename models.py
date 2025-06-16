@@ -295,3 +295,9 @@ class WorkExperiences(Base):
     start_date = Column(Date, nullable=False)
     end_date = Column(String(255))
     user_id = Column(Integer)
+
+class RevokedToken(Base):
+    __tablename__ = "revoked_tokens"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    jti = Column(String(36), unique=True, nullable=False)
+    revoked_at = Column(DateTime, nullable=False, server_default=func.now())

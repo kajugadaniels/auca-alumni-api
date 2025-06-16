@@ -2,7 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 from fastapi.responses import JSONResponse
 from database import engine, Base
-from routers import students, register
+from routers import students, register, login
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AUCA Alumni")
@@ -34,12 +35,18 @@ async def http_exception_handler(request: Request, exc: FastAPIHTTPException):
 # Include routers
 app.include_router(
     students.router,
-    prefix="/api/students",
+    prefix="/api",
     tags=["students"],
 )
 
 app.include_router(
     register.router,
+    prefix="/api/auth",
+    tags=["auth"],
+)
+
+app.include_router(
+    login.router,
     prefix="/api/auth",
     tags=["auth"],
 )

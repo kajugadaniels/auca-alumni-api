@@ -1,7 +1,7 @@
 from models import *
+from schemas.login import *
 from database import get_db
 from sqlalchemy.orm import Session
-from schemas.auth import LoginSchema, TokenSchema, TokenData
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from utils.security import create_access_token, verify_password, decode_access_token

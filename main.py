@@ -1,5 +1,3 @@
-# main.py
-
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy import asc, desc
@@ -38,7 +36,7 @@ class StudentSchema(BaseModel):
 
 
 # 3. GET /students endpoint with pagination, search, and ordering
-@app.get("/students", response_model=List[StudentSchema])
+@app.get("/api/students", response_model=List[StudentSchema])
 def get_students(
     *,
     db: Session = Depends(get_db),

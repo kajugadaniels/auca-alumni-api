@@ -1,17 +1,17 @@
+from __future__ import annotations
 from pydantic import BaseModel, Field, validator
 from datetime import date
 from typing import Optional
 
 class EventBase(BaseModel):
-    """Shared properties for an event."""
-    photo: str = Field(..., max_length=255, description="URL to event photo")
-    date: date = Field(..., description="Date of the event")
-    description: str = Field(..., description="Detailed description of the event")
+    photo: str = Field(..., max_length=255)
+    date: date = Field(..., description="Date of the event")   # no more clash
+    description: str
 
     @validator("photo")
     def must_be_valid_url(cls, v):
         if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("Photo must be a valid URL (http or https)")
+            raise ValueError("Photo must be a valid URL")
         return v
 
 class EventCreate(EventBase):

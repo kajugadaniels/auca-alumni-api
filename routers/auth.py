@@ -139,18 +139,21 @@ def login(
         },
     )
 
-async def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
-):
-    """
-    Dependency to validate token and retrieve current user.
-    Raises 401 if token invalid, expired, or user not found.
-    """
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    "Validate token, check revocation, and return user."  
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": "invalid_token", "message": "Could not validate credentials or token has expired."},
+            detail={"error": "invalid_token", "message": "Token invalid or expired."},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # check if token has been revoked
+    jti = payload.get("jti")
+    if db.query(RevokedToken).filter_by(jti=jti).first():
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "token_revoked", "message": "Token has been revoked. Please login again."},
             headers={"WWW-Authenticate": "Bearer"},
         )
     user_id = int(payload["sub"])
@@ -161,7 +164,7 @@ async def get_current_user(
             detail={"error": "user_not_found", "message": "User not found."},
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return user
+    return {"user": user, "jti": jti}
 
 @router.get(
     "/verify-token",
@@ -189,4 +192,22 @@ def verify_token(
                 "phone_number": current_user.phone_number,
             },
         },
+    )
+
+@router.post(
+    "/logout",
+    response_model=LogoutResponse,
+    summary="Revoke current user's token",
+)
+def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
+    "Revoke the JWT by storing its JTI to blacklist."  
+    user = current["user"]
+    jti = current["jti"]
+    # persist revoked token
+    revoked = RevokedToken(jti=jti)
+    db.add(revoked)
+    db.commit()
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "success", "message": "Logout successful; token revoked."},
     )

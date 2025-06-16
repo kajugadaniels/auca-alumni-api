@@ -9,4 +9,5 @@ urlpatterns = [
     path('login/', LoginUserView.as_view(), name='login'),
     path('register/', RegisterUserView.as_view(), name='register'),
     path('verify-token/', VerifyUserTokenView.as_view(), name='verify-token'),
+    path('logout/', LogoutUserView.as_view(), name='logout'),
 ]  + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

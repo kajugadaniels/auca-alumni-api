@@ -4,6 +4,25 @@ from django.utils import timezone
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
 
+class LoginUserSerializer(serializers.Serializer):
+    identifier = serializers.CharField()  # email or phone_number
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        identifier = data.get('identifier')
+        password = data.get('password')
+
+        try:
+            user = User.objects.get(models.Q(email=identifier) | models.Q(phone_number=identifier))
+        except User.DoesNotExist:
+            raise serializers.ValidationError("No user found with provided email or phone number.")
+
+        if not check_password(password, user.password):
+            raise serializers.ValidationError("Invalid password.")
+
+        data['user'] = user
+        return data
+
 class RegisterUserSerializer(serializers.ModelSerializer):
     student_id = serializers.IntegerField(write_only=True)
 

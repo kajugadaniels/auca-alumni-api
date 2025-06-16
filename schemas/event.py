@@ -1,12 +1,11 @@
-from __future__ import annotations
 from pydantic import BaseModel, Field, validator
-from datetime import date
+from datetime import date as DateType
 from typing import Optional
 
 class EventBase(BaseModel):
-    photo: str = Field(..., max_length=255)
-    date: date = Field(..., description="Date of the event")   # no more clash
-    description: str
+    photo: str = Field(..., max_length=255, description="URL to event photo")
+    date: DateType = Field(..., description="Date of the event")   # now uses DateType
+    description: str = Field(..., description="Detailed description")
 
     @validator("photo")
     def must_be_valid_url(cls, v):

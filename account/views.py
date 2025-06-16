@@ -51,18 +51,18 @@ class RegisterUserView(APIView):
 
 class VerifyUserTokenView(APIView):
     """
-    Verify JWT access token and return the authenticated user's profile.
+    Verify token and return authenticated user profile.
     """
-    authentication_classes = [UserJWTAuthentication]
+    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        serializer = UserSerializer(user, context={'request': request})
-        return Response(
-            {"detail": "Token is valid", "user": serializer.data},
-            status=status.HTTP_200_OK
-        )
+        serializer = UserSerializer(user)
+        return Response({
+            "detail": "Token is valid",
+            "user": serializer.data
+        }, status=status.HTTP_200_OK)
 
 class UserLogoutView(APIView):
     """

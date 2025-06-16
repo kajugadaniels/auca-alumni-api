@@ -1,0 +1,296 @@
+from database import Base
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime, Boolean, ForeignKey
+
+class Certifications(Base):
+    __tablename__ = "certifications"
+
+    id = Column(BigInteger, nullable=False)
+    user_id = Column(Integer, nullable=False)
+    image = Column(String(255), nullable=False)
+    certificate_name = Column(String(255), nullable=False)
+    year = Column(Integer, nullable=False)
+    type = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Countries(Base):
+    __tablename__ = "countries"
+
+    id = Column(BigInteger, nullable=False)
+    name = Column(String(255), nullable=False)
+    abbreviation = Column(String(255))
+    currency = Column(String(255))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    code = Column(String(255))
+
+
+class Departments(Base):
+    __tablename__ = "departments"
+
+    id = Column(BigInteger, nullable=False)
+    faculty_id = Column(BigInteger, nullable=False)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class ExecutiveComittes(Base):
+    __tablename__ = "executive_comittes"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False)
+    position = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Faculties(Base):
+    __tablename__ = "faculties"
+
+    id = Column(BigInteger, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class FailedJobs(Base):
+    __tablename__ = "failed_jobs"
+
+    id = Column(BigInteger, nullable=False)
+    uuid = Column(String(255), nullable=False)
+    connection = Column(Text, nullable=False)
+    queue = Column(Text, nullable=False)
+    payload = Column(Text, nullable=False)
+    exception = Column(Text, nullable=False)
+    failed_at = Column(DateTime, nullable=False)
+
+
+class Jobs(Base):
+    __tablename__ = "jobs"
+
+    id = Column(BigInteger, nullable=False)
+    queue = Column(String(255), nullable=False)
+    payload = Column(Text, nullable=False)
+    attempts = Column(Boolean, nullable=False)
+    reserved_at = Column(Integer)
+    available_at = Column(Integer, nullable=False)
+    created_at = Column(Integer, nullable=False)
+
+
+class LatestNews(Base):
+    __tablename__ = "latest_news"
+
+    id = Column(BigInteger, nullable=False)
+    title = Column(String(255), nullable=False)
+    date = Column(Date, nullable=False)
+    description = Column(Text, nullable=False)
+    photo = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Migrations(Base):
+    __tablename__ = "migrations"
+
+    id = Column(Integer, nullable=False)
+    migration = Column(String(255), nullable=False)
+    batch = Column(Integer, nullable=False)
+
+
+class Opportunities(Base):
+    __tablename__ = "opportunities"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    date = Column(Date, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    user_id = Column(Integer)
+    status = Column(String(255))
+    link = Column(Text)
+
+
+class OpportunityHistories(Base):
+    __tablename__ = "opportunity_histories"
+
+    id = Column(BigInteger, nullable=False)
+    opportunity_id = Column(BigInteger, nullable=False)
+    user_id = Column(BigInteger, nullable=False)
+    comment = Column(Text, nullable=False)
+    status = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class PasswordResets(Base):
+    __tablename__ = "password_resets"
+
+    email = Column(String(255), nullable=False)
+    token = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+
+
+class PersonalAccessTokens(Base):
+    __tablename__ = "personal_access_tokens"
+
+    id = Column(BigInteger, nullable=False)
+    tokenable_type = Column(String(255), nullable=False)
+    tokenable_id = Column(BigInteger, nullable=False)
+    name = Column(String(255), nullable=False)
+    token = Column(String(64), nullable=False)
+    abilities = Column(Text)
+    last_used_at = Column(DateTime)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class PersonalInformation(Base):
+    __tablename__ = "personal_information"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    bio = Column(Text, nullable=False)
+    current_employer = Column(String(255))
+    self_employed = Column(String(255))
+    latest_education_level = Column(String(255))
+    address = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    profession_id = Column(Integer)
+    user_id = Column(Integer)
+    dob = Column(Date)
+    start_date = Column(Date)
+    end_date = Column(Date)
+    faculty_id = Column(BigInteger)
+    country_id = Column(String(255))
+    department = Column(String(255))
+    gender = Column(Boolean, nullable=False)
+    status = Column(String(255))
+
+
+class Professions(Base):
+    __tablename__ = "professions"
+
+    id = Column(BigInteger, nullable=False)
+    name = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Programs(Base):
+    __tablename__ = "programs"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class ProgramAttendances(Base):
+    __tablename__ = "program_attendances"
+
+    id = Column(BigInteger, nullable=False)
+    names = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    phone_number = Column(String(255), nullable=False)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Sliders(Base):
+    __tablename__ = "sliders"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255))
+    description = Column(Text)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class SocialActivities(Base):
+    __tablename__ = "social_activities"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(String(255), nullable=False)
+    date = Column(Date, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Students(Base):
+    __tablename__ = "students"
+
+    id = Column(BigInteger, nullable=False)
+    id_number = Column(Integer, nullable=False)
+    first_name = Column(String(255), nullable=False)
+    last_name = Column(String(255), nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class SubscribedUsers(Base):
+    __tablename__ = "subscribed_users"
+
+    id = Column(BigInteger, nullable=False)
+    email = Column(String(255), nullable=False)
+    token = Column(String(255))
+    status = Column(String, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class UpComingEvents(Base):
+    __tablename__ = "up_coming_events"
+
+    id = Column(BigInteger, nullable=False)
+    photo = Column(String(255), nullable=False)
+    date = Column(Date, nullable=False)
+    description = Column(Text, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+
+
+class Users(Base):
+    __tablename__ = "users"
+
+    id = Column(BigInteger, nullable=False)
+    email = Column(String(255), nullable=False)
+    email_verified_at = Column(DateTime)
+    password = Column(String(255), nullable=False)
+    remember_token = Column(String(100))
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    first_name = Column(String(255))
+    last_name = Column(String(255))
+    phone_number = Column(String(255))
+    is_staff = Column(Boolean)
+    student_id = Column(Integer, nullable=False)
+    type = Column(String(255))
+
+
+class WorkExperiences(Base):
+    __tablename__ = "work_experiences"
+
+    id = Column(BigInteger, nullable=False)
+    company = Column(String(255), nullable=False)
+    employer = Column(String(255), nullable=False)
+    job_title = Column(String(255), nullable=False)
+    job_description = Column(Text, nullable=False)
+    created_at = Column(DateTime)
+    updated_at = Column(DateTime)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(String(255))
+    user_id = Column(Integer)

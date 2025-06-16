@@ -64,3 +64,13 @@ class VerifyUserTokenView(APIView):
             {"detail": "Token is valid", "user": serializer.data},
             status=status.HTTP_200_OK
         )
+
+class LogoutUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "Logout successful."}, status=status.HTTP_204_NO_CONTENT)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

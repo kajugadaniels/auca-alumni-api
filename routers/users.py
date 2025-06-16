@@ -3,6 +3,7 @@ from schemas.user import *
 from database import get_db
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status
 
 router = APIRouter()

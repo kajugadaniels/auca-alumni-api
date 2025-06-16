@@ -1,5 +1,4 @@
 from account.auth_utils import *
-from account.audit_logs import *
 from rest_framework import status
 from account.serializers import *
 from rest_framework.views import APIView
@@ -10,14 +9,6 @@ class LoginUserView(APIView):
         serializer = LoginUserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-
-            # Log event
-            log_login_event(user, request)
-
-            # Perform session login
-            perform_session_login(request, user)
-
-            # Issue JWT tokens
             tokens = get_tokens_for_user(user)
 
             return Response({

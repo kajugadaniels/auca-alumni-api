@@ -64,3 +64,22 @@ def show_event(event_id: int, db: Session = Depends(get_db)):
             detail={"error": "not_found", "message": f"No event found with ID {event_id}."},
         )
     return EventResponse(message="Event fetched successfully.", event=event)
+
+@router.put(
+    "/event/{event_id}/update",
+    response_model=EventResponse,
+    summary="Update an existing upcoming event"
+)
+def update_event(event_id: int, event_in: EventUpdate, db: Session = Depends(get_db)):
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "message": f"No event found with ID {event_id}."},
+        )
+
+    for field, value in event_in.dict(exclude_unset=True).items():
+        setattr(event, field, value)
+    db.commit()
+    db.refresh(event)
+    return EventResponse(message="Event updated successfully.", event=event)

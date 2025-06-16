@@ -13,3 +13,10 @@ app.include_router(
     prefix="/api/students",
     tags=["students"],
 )
+
+
+app.include_router(
+    users.router,
+    prefix="/api/users",
+    tags=["users"],
+)

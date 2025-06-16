@@ -48,26 +48,17 @@ class RegisterUserView(APIView):
             "errors": serializer.errors
         }, status=status.HTTP_400_BAD_REQUEST)
 
-class VerifyTokenView(APIView):
-    authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+class VerifyUserTokenView(APIView):
+    """
+    Verify JWT access token and return the authenticated user's profile.
+    """
+    authentication_classes = [UserJWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         user = request.user
-
-        # If using a custom unmanaged User model, make sure it's consistent
-        try:
-            user_data = {
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "phone_number": user.phone_number,
-                "student_id": user.student_id
-            }
-        except Exception:
-            return Response({"message": "Invalid user or token."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        return Response({
-            "message": "Token is valid.",
-            "user": user_data
-        }, status=status.HTTP_200_OK)
+        serializer = UserSerializer(user, context={'request': request})
+        return Response(
+            {"detail": "Token is valid", "user": serializer.data},
+            status=status.HTTP_200_OK
+        )

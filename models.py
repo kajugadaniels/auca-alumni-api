@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime
 class Certifications(Base):
     __tablename__ = "certifications"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(Integer, nullable=False)
     image = Column(String(255), nullable=False)
     certificate_name = Column(String(255), nullable=False)
@@ -18,7 +18,7 @@ class Certifications(Base):
 class Countries(Base):
     __tablename__ = "countries"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     abbreviation = Column(String(255))
     currency = Column(String(255))
@@ -30,7 +30,7 @@ class Countries(Base):
 class Departments(Base):
     __tablename__ = "departments"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     faculty_id = Column(BigInteger, nullable=False)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime)
@@ -40,7 +40,7 @@ class Departments(Base):
 class ExecutiveComittes(Base):
     __tablename__ = "executive_comittes"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     position = Column(String(255), nullable=False)
@@ -51,7 +51,7 @@ class ExecutiveComittes(Base):
 class Faculties(Base):
     __tablename__ = "faculties"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     created_at = Column(DateTime)
@@ -61,7 +61,7 @@ class Faculties(Base):
 class FailedJobs(Base):
     __tablename__ = "failed_jobs"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(String(255), nullable=False)
     connection = Column(Text, nullable=False)
     queue = Column(Text, nullable=False)
@@ -73,7 +73,7 @@ class FailedJobs(Base):
 class Jobs(Base):
     __tablename__ = "jobs"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     queue = Column(String(255), nullable=False)
     payload = Column(Text, nullable=False)
     attempts = Column(Boolean, nullable=False)
@@ -85,7 +85,7 @@ class Jobs(Base):
 class LatestNews(Base):
     __tablename__ = "latest_news"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     date = Column(Date, nullable=False)
     description = Column(Text, nullable=False)
@@ -105,7 +105,7 @@ class Migrations(Base):
 class Opportunities(Base):
     __tablename__ = "opportunities"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
@@ -120,7 +120,7 @@ class Opportunities(Base):
 class OpportunityHistories(Base):
     __tablename__ = "opportunity_histories"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     opportunity_id = Column(BigInteger, nullable=False)
     user_id = Column(BigInteger, nullable=False)
     comment = Column(Text, nullable=False)
@@ -140,7 +140,7 @@ class PasswordResets(Base):
 class PersonalAccessTokens(Base):
     __tablename__ = "personal_access_tokens"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     tokenable_type = Column(String(255), nullable=False)
     tokenable_id = Column(BigInteger, nullable=False)
     name = Column(String(255), nullable=False)
@@ -154,7 +154,7 @@ class PersonalAccessTokens(Base):
 class PersonalInformation(Base):
     __tablename__ = "personal_information"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     bio = Column(Text, nullable=False)
     current_employer = Column(String(255))
@@ -178,7 +178,7 @@ class PersonalInformation(Base):
 class Professions(Base):
     __tablename__ = "professions"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     created_at = Column(DateTime)
     updated_at = Column(DateTime)
@@ -187,7 +187,7 @@ class Professions(Base):
 class Programs(Base):
     __tablename__ = "programs"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)
@@ -198,7 +198,7 @@ class Programs(Base):
 class ProgramAttendances(Base):
     __tablename__ = "program_attendances"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     names = Column(String(255), nullable=False)
     email = Column(String(255), nullable=False)
     phone_number = Column(String(255), nullable=False)
@@ -211,7 +211,7 @@ class ProgramAttendances(Base):
 class Sliders(Base):
     __tablename__ = "sliders"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255))
     description = Column(Text)
     created_at = Column(DateTime)
@@ -221,7 +221,7 @@ class Sliders(Base):
 class SocialActivities(Base):
     __tablename__ = "social_activities"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)
@@ -233,7 +233,7 @@ class SocialActivities(Base):
 class Students(Base):
     __tablename__ = "students"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     id_number = Column(Integer, nullable=False)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
@@ -244,7 +244,7 @@ class Students(Base):
 class SubscribedUsers(Base):
     __tablename__ = "subscribed_users"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     email = Column(String(255), nullable=False)
     token = Column(String(255))
     status = Column(String, nullable=False)
@@ -255,7 +255,7 @@ class SubscribedUsers(Base):
 class UpComingEvents(Base):
     __tablename__ = "up_coming_events"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255), nullable=False)
     date = Column(Date, nullable=False)
     description = Column(Text, nullable=False)
@@ -266,7 +266,7 @@ class UpComingEvents(Base):
 class Users(Base):
     __tablename__ = "users"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     email = Column(String(255), nullable=False)
     email_verified_at = Column(DateTime)
     password = Column(String(255), nullable=False)
@@ -284,7 +284,7 @@ class Users(Base):
 class WorkExperiences(Base):
     __tablename__ = "work_experiences"
 
-    id = Column(BigInteger, nullable=False)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     company = Column(String(255), nullable=False)
     employer = Column(String(255), nullable=False)
     job_title = Column(String(255), nullable=False)

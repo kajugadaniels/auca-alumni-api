@@ -1,22 +1,18 @@
 from fastapi import FastAPI
 from database import engine, Base
-from routers import students
+from routers import students, users
 
-# Create DB tables (if you prefer auto-create; otherwise handle migrations separately)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Student API")
+app = FastAPI(title="Student & User API")
 
-# Include routers
 app.include_router(
     students.router,
     prefix="/api/students",
     tags=["students"],
 )
-
-
 app.include_router(
     users.router,
-    prefix="/api/users",
+    prefix="/api/register",
     tags=["users"],
 )

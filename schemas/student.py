@@ -8,15 +8,15 @@ class StudentSchema(BaseModel):
     last_name: str
 
     model_config = {
-        "from_attributes": True  # enable attribute-based loading (ORM mode) in Pydantic v2
+        "from_attributes": True
     }
 
 class StudentListResponse(BaseModel):
-    total: int
+    total: int  # total students in the DB
     page: int
     page_size: int
-    next_page: Optional[int]
-    prev_page: Optional[int]
+    next_page: Optional[str]
+    prev_page: Optional[str]
     items: List[StudentSchema]
 
     model_config = {

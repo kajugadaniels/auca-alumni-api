@@ -200,20 +200,13 @@ def verify_token(
     summary="Revoke current user's token",
 )
 def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
-    "Revoke the JWT by storing its JTI to blacklist."  
-    user = current["user"]
-    jti = current["jti"]
+    """Revokes the JWT by storing its JTI in a blacklist table."""
+    context = current  # dictionary with 'user' and 'jti'
     # persist revoked token
-    revoked = RevokedToken(jti=jti)
+    revoked = RevokedToken(jti=context['jti'])
     db.add(revoked)
     db.commit()
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={"status": "success", "message": "Logout successful; token revoked."},
     )
-
-class LogoutResponse(BaseModel):
-    status: str = Field(..., description="Result status, e.g., 'success'")
-    message: str = Field(..., description="Detailed message about logout operation")
-
-    model_config = {"from_attributes": True}

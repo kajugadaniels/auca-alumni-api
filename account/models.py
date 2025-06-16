@@ -1,5 +1,14 @@
 from django.db import models
 
+class AuthToken(models.Model):
+    key = models.CharField(max_length=40, primary_key=True)
+    user_id = models.BigIntegerField(unique=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'auth_token'
+        managed = False
+
 class User(models.Model):
     id = models.BigAutoField(primary_key=True)
     email = models.EmailField(unique=True)

@@ -1,4 +1,3 @@
-from typing import List, Optional
 from pydantic import BaseModel
 
 class StudentSchema(BaseModel):
@@ -9,12 +8,3 @@ class StudentSchema(BaseModel):
 
     class Config:
         orm_mode = True
-
-class StudentListResponse(BaseModel):
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-    next_page: Optional[int]
-    prev_page: Optional[int]
-    items: List[StudentSchema]

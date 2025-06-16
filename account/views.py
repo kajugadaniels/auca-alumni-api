@@ -1,8 +1,10 @@
 from account.auth_utils import *
 from account.serializers import *
+from account.authentication import *
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 class LoginUserView(APIView):

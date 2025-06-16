@@ -1,6 +1,4 @@
-from account.auth_utils import *
 from account.serializers import *
-from account.authentication import *
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions

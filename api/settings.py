@@ -176,21 +176,6 @@ REST_FRAMEWORK = {
 
 REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'] = ['django_filters.rest_framework.DjangoFilterBackend']
 
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUDIENCE': None,
-    'ISSUER': None,
-    'LEEWAY': 0,
-    'USER_ID_FIELD': 'email',
-    'USER_ID_CLAIM': 'user_email',
-}
-
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:5173',
     'https://*.127.0.0.1'

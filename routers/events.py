@@ -88,3 +88,44 @@ def get_event(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
     return event
+
+@router.put(
+    "/events/{event_id}",
+    response_model=EventResponse,
+    summary="Update an existing event",
+)
+def update_event(
+    event_id: int,
+    data: EventUpdate,
+    file: UploadFile | None = File(None),
+    current=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update event fields and optionally replace image.
+    Uploaded image is cropped to portrait.
+    """
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+    # Process new image if provided
+    if file:
+        image = Image.open(io.BytesIO(file.file.read()))
+        width, height = image.size
+        if width > height:
+            left = (width - height) / 2
+            right = left + height
+            cropped = image.crop((left, 0, right, height))
+        else:
+            cropped = image
+        filename = f"event_{int(io.time.time())}_{file.filename}"
+        path = os.path.join(IMAGE_DIR, filename)
+        cropped.save(path)
+        event.photo = path
+    # Update other fields
+    if data.date:
+        event.date = data.date
+    if data.description:
+        event.description = data.description
+    db.commit()
+    db.refresh(event)
+    return event

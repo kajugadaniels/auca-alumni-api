@@ -41,37 +41,101 @@ def list_events(
 )
 def create_event(
     file: UploadFile = File(..., description="Event image to upload"),
-    date: str = Depends(),
+    date: date = Depends(),
     description: str = Depends(),
     current=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    Uploads an image, crops it to portrait, saves locally, and creates an event record.
+    Uploads an image, crops/resizes it to exactly 1270×720, saves locally,
+    and creates an event record.
     """
-    # Validate and process image
+    # 1) Validate image
     try:
-        image = Image.open(io.BytesIO(file.file.read()))
+        raw = file.file.read()
+        image = Image.open(io.BytesIO(raw))
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image file.")
-    # Crop to portrait (height >= width)
-    width, height = image.size
-    if width > height:
-        left = (width - height) / 2
-        right = left + height
-        cropped = image.crop((left, 0, right, height))
-    else:
-        cropped = image
-    # Save image
-    filename = f"event_{int(io.time.time())}_{file.filename}"
-    path = os.path.join(IMAGE_DIR, filename)
-    cropped.save(path)
-    # Create DB record
-    event = UpComingEvents(photo=path, date=date, description=description)
-    db.add(event)
-    db.commit()
-    db.refresh(event)
-    return event
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_image",
+                "message": "Uploaded file is not a valid image."
+            },
+        )
+
+    # 2) Crop to 16:9 and resize to 1270×720
+    try:
+        width, height = image.size
+        target_ratio = 1270 / 720
+        current_ratio = width / height
+
+        if current_ratio > target_ratio:
+            # image is too wide → crop width
+            new_width = int(height * target_ratio)
+            left = (width - new_width) // 2
+            box = (left, 0, left + new_width, height)
+        else:
+            # image is too tall → crop height
+            new_height = int(width / target_ratio)
+            top = (height - new_height) // 2
+            box = (0, top, width, top + new_height)
+
+        cropped = image.crop(box)
+        resized = cropped.resize((1270, 720))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "processing_error",
+                "message": "Failed to crop/resize the image."
+            },
+        )
+
+    # 3) Save processed image
+    try:
+        ts = int(time.time())
+        fname = f"event_{ts}_{file.filename}".replace(" ", "_")
+        path = os.path.join(IMAGE_DIR, fname)
+        resized.save(path)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "save_error",
+                "message": "Failed to save the processed image."
+            },
+        )
+
+    # 4) Create DB record
+    try:
+        event = UpComingEvents(photo=path, date=date, description=description)
+        db.add(event)
+        db.commit()
+        db.refresh(event)
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "db_error",
+                "message": "Failed to write event to the database."
+            },
+        )
+
+    # 5) Return detailed success JSON
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Event created successfully.",
+            "event": {
+                "id": event.id,
+                "photo": event.photo,
+                "date": str(event.date),
+                "description": event.description,
+            },
+        },
+    )
 
 @router.get(
     "/event/{event_id}",
@@ -90,7 +154,7 @@ def get_event(
     return event
 
 @router.put(
-    "/event/{event_id}",
+    "/event/{event_id}/update",
     response_model=EventResponse,
     summary="Update an existing event",
 )
@@ -131,7 +195,7 @@ def update_event(
     return event
 
 @router.delete(
-    "/event/{event_id}",
+    "/event/{event_id}/delete",
     response_model=None,
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete an event",

@@ -10,11 +10,11 @@ class LoginUserView(APIView):
         serializer = LoginUserSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            tokens = get_tokens_for_user(user)
+            token, _ = Token.objects.get_or_create(user=user)
 
             return Response({
                 "message": "Login successful.",
-                "tokens": tokens,
+                "token": token.key,
                 "user": {
                     "email": user.email,
                     "first_name": user.first_name,
@@ -23,6 +23,7 @@ class LoginUserView(APIView):
                     "student_id": user.student_id
                 }
             }, status=status.HTTP_200_OK)
+
         return Response({
             "message": "Login failed.",
             "errors": serializer.errors

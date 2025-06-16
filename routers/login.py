@@ -1,56 +1,62 @@
+
 from models import *
 from schemas.login import *
+from utils.security import *
 from database import get_db
 from sqlalchemy.orm import Session
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from utils.security import create_access_token, verify_password, decode_access_token
+from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 
 router = APIRouter()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
-
 @router.post(
     "/login",
     response_model=TokenSchema,
     summary="User login to receive access token",
 )
 def login(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+    data: LoginSchema = Body(..., media_type="application/json"),
     db: Session = Depends(get_db),
 ):
-    # Identify by email or phone
+    """
+    Authenticate user by email or phone_number and password via JSON payload.
+    """
+    # 1) Validate presence
+    if not data.username or not data.password:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={
+                "status": "error",
+                "message": "Username and password are required.",
+                "errors": [
+                    {"loc": ["body", "username"], "message": "Field required."},
+                    {"loc": ["body", "password"], "message": "Field required."},
+                ],
+            },
+        )
+    # 2) Find user by email or phone_number
     user = (
         db.query(Users)
         .filter(
-            (Users.email == form_data.username) |
-            (Users.phone_number == form_data.username)
+            (Users.email == data.username) |
+            (Users.phone_number == data.username)
         )
         .first()
     )
-    if not user or not verify_password(form_data.password, user.password):
+    if not user or not verify_password(data.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": "invalid_credentials", "message": "Incorrect username or password."},
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # 3) Create JWT
     access_token = create_access_token({"sub": str(user.id)})
-    return {"access_token": access_token, "token_type": "bearer"}
-
-# Dependency to get current user
-async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": "invalid_token", "message": "Could not validate credentials."},
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    user_id = int(payload["sub"])
-    user = db.query(Users).get(user_id)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": "user_not_found", "message": "User not found."},
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return user
+    # 4) Return token
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": "Login successful.",
+            "access_token": access_token,
+            "token_type": "bearer"
+        },
+    )

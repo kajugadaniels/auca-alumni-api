@@ -4,12 +4,12 @@ Main application entry point: include routers and exception handlers.
 from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from routers import students, auth, countries
+from routers import students, auth, countries, events
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 
 # Auto-create tables (or manage migrations externally)
 Base.metadata.create_all(bind=engine)
-app = FastAPI(title="AUCA Alumni with Unified Auth")
+app = FastAPI(title="AUCA Alumni")
 
 # Exception handler for Pydantic validation errors
 @app.exception_handler(RequestValidationError)
@@ -47,4 +47,10 @@ app.include_router(
     countries.router,
     prefix="/api",
     tags=["countries"],
+)
+
+app.include_router(
+    events.router,
+    prefix="/api",
+    tags=["events"],
 )

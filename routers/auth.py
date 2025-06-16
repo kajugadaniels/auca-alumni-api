@@ -15,6 +15,8 @@ router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
+# Register
+
 @router.post(
     "/register",
     response_model=UserResponseSchema,
@@ -81,6 +83,8 @@ def register_user(data: UserRegisterSchema, db: Session = Depends(get_db)):
             },
         },
     )
+
+# Login
 
 @router.post(
     "/login",

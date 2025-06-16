@@ -8,11 +8,11 @@ app = FastAPI(title="Student & User API")
 
 app.include_router(
     students.router,
-    prefix="/api/students",
+    prefix="/api",
     tags=["students"],
 )
 app.include_router(
     users.router,
-    prefix="/api/register",
+    prefix="/api/auth",
     tags=["users"],
 )

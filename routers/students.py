@@ -10,7 +10,7 @@ from schemas.student import StudentSchema, StudentListResponse
 router = APIRouter()
 
 @router.get(
-    "",
+    "/students",
     response_model=StudentListResponse,
     summary="Retrieve a paginated list of students with metadata and navigation URLs",
 )

@@ -211,3 +211,9 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
         status_code=status.HTTP_200_OK,
         content={"status": "success", "message": "Logout successful; token revoked."},
     )
+
+class LogoutResponse(BaseModel):
+    status: str = Field(..., description="Result status, e.g., 'success'")
+    message: str = Field(..., description="Detailed message about logout operation")
+
+    model_config = {"from_attributes": True}

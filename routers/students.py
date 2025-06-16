@@ -10,14 +10,14 @@ router = APIRouter()
 
 @router.get(
     "",
-    response_model=List[StudentSchema],
-    summary="Retrieve a paginated list of students",
+    response_model=StudentListResponse,
+    summary="Retrieve students with pagination, search, and sorting",
 )
 def get_students(
-    *,
+    request: Request,
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by first or last name"),
     sort_by: str = Query(
         "created_at",
@@ -27,31 +27,46 @@ def get_students(
     order: str = Query(
         "desc", regex="^(asc|desc)$", description="Sort direction"
     ),
-) -> List[StudentSchema]:
+) -> StudentListResponse:
     """
-    Retrieve a paginated list of students, optionally filtered and ordered.
+    Retrieve a paginated list of students, with total count and navigation links.
     """
-    query = db.query(Students)
+    # Base query
+    base_q = db.query(Students)
 
-    # 1) Search filter
+    # Search filter
     if search:
         term = f"%{search.strip()}%"
-        query = query.filter(
+        base_q = base_q.filter(
             Students.first_name.ilike(term) | Students.last_name.ilike(term)
         )
 
-    # 2) Ordering
+    # Total count
+    total = base_q.with_entities(func.count()).scalar()  # COUNT(*) on filtered set
+
+    # Sorting
     direction = asc if order == "asc" else desc
     column = getattr(Students, sort_by)
-    query = query.order_by(direction(column))
+    base_q = base_q.order_by(direction(column))
 
-    # 3) Pagination
-    offset = (page - 1) * page_size
-    students = query.offset(offset).limit(page_size).all()
-
-    if not students and page != 1:
+    # Pagination calculations
+    total_pages = ceil(total / page_size) if total else 1
+    if page > total_pages and total > 0:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    return students
+    offset = (page - 1) * page_size
+    items = base_q.offset(offset).limit(page_size).all()
 
-# git commit -m "Add students router with pagination, search, and sorting"
+    # Build next/prev page numbers
+    next_page = page + 1 if page < total_pages else None
+    prev_page = page - 1 if page > 1 else None
+
+    return StudentListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        next_page=next_page,
+        prev_page=prev_page,
+        items=items,
+    )

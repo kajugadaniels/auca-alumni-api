@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,10 @@ router = APIRouter()
 @router.get(
     "",
     response_model=StudentListResponse,
-    summary="Retrieve a paginated list of students with metadata",
+    summary="Retrieve a paginated list of students with metadata and navigation URLs",
 )
 def get_students(
+    request: Request,
     *,
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
@@ -31,37 +32,39 @@ def get_students(
 ) -> StudentListResponse:
     """
     Retrieve students with:
-    - total count of matching records
+    - total count of all records
     - current page and page_size
-    - next_page and prev_page indicators
+    - next_page and prev_page as full URLs
     """
-    base_q = db.query(Students)
+    # 1) Total records (no filter)
+    total = db.query(func.count(Students.id)).scalar()
 
-    # Apply search filter
+    # 2) Build filtered + ordered query for items
+    query = db.query(Students)
     if search:
         term = f"%{search.strip()}%"
-        base_q = base_q.filter(
+        query = query.filter(
             Students.first_name.ilike(term) | Students.last_name.ilike(term)
         )
 
-    # Total count on filtered set
-    total = base_q.with_entities(func.count()).scalar()  # single-count query
-
-    # Apply ordering
     direction = asc if order == "asc" else desc
     column = getattr(Students, sort_by)
-    ordered_q = base_q.order_by(direction(column))
+    query = query.order_by(direction(column))
 
-    # Pagination
+    # 3) Pagination
     offset = (page - 1) * page_size
-    students = ordered_q.offset(offset).limit(page_size).all()
+    items = query.offset(offset).limit(page_size).all()
 
-    if not students and page != 1:
+    # if out of range
+    if not items and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    # Calculate prev/next page numbers
-    prev_page = page - 1 if page > 1 else None
-    next_page = page + 1 if offset + len(students) < total else None
+    # 4) Build navigation URLs
+    def make_url(p: int) -> str:
+        return str(request.url.include_query_params(page=p, page_size=page_size))
+
+    prev_page = make_url(page - 1) if page > 1 else None
+    next_page = make_url(page + 1) if offset + len(items) < total else None
 
     return StudentListResponse(
         total=total,
@@ -69,7 +72,5 @@ def get_students(
         page_size=page_size,
         next_page=next_page,
         prev_page=prev_page,
-        items=students,
+        items=items,
     )
-
-# git commit -m "feat: enhance students router with total count and prev/next page"

@@ -97,7 +97,8 @@ class LatestNews(Base):
 class Migrations(Base):
     __tablename__ = "migrations"
 
-    id = Column(Integer, nullable=False)
+    # mark `id` as the primary key
+    id = Column(Integer, primary_key=True, autoincrement=True)
     migration = Column(String(255), nullable=False)
     batch = Column(Integer, nullable=False)
 
@@ -132,8 +133,8 @@ class OpportunityHistories(Base):
 class PasswordResets(Base):
     __tablename__ = "password_resets"
 
-    email = Column(String(255), nullable=False)
-    token = Column(String(255), nullable=False)
+    email = Column(String(255), primary_key=True, nullable=False)
+    token = Column(String(255), primary_key=True, nullable=False)
     created_at = Column(DateTime)
 
 

@@ -67,23 +67,20 @@ class VerifyUserTokenView(APIView):
 
 class UserLogoutView(APIView):
     """
-    Stateless logout. Does NOT validate or blacklist the refresh token.
-    Simply instructs client to discard it.
+    Stateless logout. No token decoding. Just instructs client to discard refresh token.
     """
     authentication_classes = [UserJWTAuthentication]
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
-        refresh_token = request.data.get("refresh")
-
-        if not refresh_token:
+    def post(self, request):
+        if not request.data.get("refresh"):
             return Response(
                 {"detail": "Refresh token is required."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # No validation/decoding to avoid relying on jti, OutstandingToken, etc.
+        # Do not decode or parse the refresh token at all
         return Response(
-            {"detail": "Logout successful. Please discard refresh token on client side."},
+            {"detail": "Logout successful. Please delete the token on client side."},
             status=status.HTTP_200_OK
         )

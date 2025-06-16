@@ -1,5 +1,5 @@
 """
-Authentication router: handles /auth/register and /auth/login
+Unified authentication router: handles /api/auth/register, /api/auth/login, and /api/auth/verify-token
 """
 from models import *
 from schemas.auth import *
@@ -136,5 +136,57 @@ def login(
             "message": "Login successful.",
             "access_token": access_token,
             "token_type": "bearer"
+        },
+    )
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
+    """
+    Dependency to validate token and retrieve current user.
+    Raises 401 if token invalid, expired, or user not found.
+    """
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "invalid_token", "message": "Could not validate credentials or token has expired."},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user_id = int(payload["sub"])
+    user = db.query(Users).get(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "user_not_found", "message": "User not found."},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+@router.get(
+    "/verify-token",
+    response_model=VerifyTokenResponse,
+    summary="Verify access token validity",
+)
+def verify_token(
+    current_user: Users = Depends(get_current_user)
+):
+    """
+    Endpoint to check if a token is valid. Returns the current user's basic info.
+    Expired tokens will be rejected by the dependency.
+    """
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": "Token is valid.",
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "first_name": current_user.first_name,
+                "last_name": current_user.last_name,
+                "student_id": current_user.student_id,
+                "phone_number": current_user.phone_number,
+            },
         },
     )

@@ -67,8 +67,8 @@ class VerifyUserTokenView(APIView):
 
 class UserLogoutView(APIView):
     """
-    Logs out the user without using migrations.
-    Simply advises client to discard the token.
+    Stateless logout. Does NOT validate or blacklist the refresh token.
+    Simply instructs client to discard it.
     """
     authentication_classes = [UserJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -82,8 +82,8 @@ class UserLogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # NOTE: No blacklist here — purely stateless logout
+        # No validation/decoding to avoid relying on jti, OutstandingToken, etc.
         return Response(
-            {"detail": "Logout successful. Please discard the refresh token client-side."},
+            {"detail": "Logout successful. Please discard refresh token on client side."},
             status=status.HTTP_200_OK
         )

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Pydantic schemas for UpComingEvents CRUD operations.
 """

@@ -1,10 +1,8 @@
 """
-Combined schema definitions for authentication: user registration, login, token models,
-and logout/verification responses.
+Combined schema definitions for authentication: user registration, login, and token models.
 """
 import re
 from typing import Optional
-from __future__ import annotations
 from pydantic import BaseModel, EmailStr, Field, validator
 
 # Login User

@@ -1,5 +1,5 @@
 from database import Base
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime, Boolean, ForeignKey, func
 
 class Certifications(Base):
     __tablename__ = "certifications"

@@ -2,8 +2,9 @@ from account.serializers import *
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
+from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.authentication import TokenAuthentication
 
 class LoginUserView(APIView):
     def post(self, request):
@@ -66,20 +67,15 @@ class VerifyUserTokenView(APIView):
 
 class UserLogoutView(APIView):
     """
-    Stateless logout. No token decoding. Just instructs client to discard refresh token.
+    Logs out the user by deleting their token.
     """
-    authentication_classes = [UserJWTAuthentication]
+    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        if not request.data.get("refresh"):
-            return Response(
-                {"detail": "Refresh token is required."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        try:
+            request.user.auth_token.delete()
+        except Exception:
+            return Response({"detail": "Token not found or already deleted."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Do not decode or parse the refresh token at all
-        return Response(
-            {"detail": "Logout successful. Please delete the token on client side."},
-            status=status.HTTP_200_OK
-        )
+        return Response({"detail": "Logout successful. Token deleted."}, status=status.HTTP_200_OK)

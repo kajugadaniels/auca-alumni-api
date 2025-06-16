@@ -60,3 +60,11 @@ class RegisterUserSerializer(serializers.ModelSerializer):
             type="user"
         )
         return user
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for returning basic user profile info.
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'phone_number', 'student_id', 'type']

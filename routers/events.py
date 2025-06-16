@@ -72,3 +72,19 @@ def create_event(
     db.commit()
     db.refresh(event)
     return event
+
+@router.get(
+    "/event/{event_id}",
+    response_model=EventResponse,
+    summary="Get details of a specific event",
+)
+def get_event(
+    event_id: int,
+    current=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve event by ID."""
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+    return event

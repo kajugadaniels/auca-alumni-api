@@ -18,3 +18,8 @@ class User(models.Model):
     class Meta:
         db_table = 'users'
         managed = False
+
+    @property
+    def is_active(self):
+        # Assume all users are active unless you have a column for it
+        return True

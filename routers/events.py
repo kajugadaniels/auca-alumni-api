@@ -90,7 +90,7 @@ def get_event(
     return event
 
 @router.put(
-    "/events/{event_id}",
+    "/event/{event_id}",
     response_model=EventResponse,
     summary="Update an existing event",
 )
@@ -129,3 +129,22 @@ def update_event(
     db.commit()
     db.refresh(event)
     return event
+
+@router.delete(
+    "/event/{event_id}",
+    response_model=None,
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an event",
+)
+def delete_event(
+    event_id: int,
+    current=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete an event by ID."""
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found.")
+    db.delete(event)
+    db.commit()
+    return JSONResponse(status_code=status.HTTP_204_NO_CONTENT, content=None)

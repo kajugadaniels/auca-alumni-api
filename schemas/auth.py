@@ -47,3 +47,8 @@ class UserRegisterSchema(BaseModel):
         if not pattern.match(v):
             raise ValueError("Invalid phone number format")
         return v
+
+class VerifyTokenResponse(BaseModel):
+    status: str
+    message: str
+    user: UserResponseSchema

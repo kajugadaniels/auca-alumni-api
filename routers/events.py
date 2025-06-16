@@ -50,3 +50,17 @@ def add_event(event_in: EventCreate, db: Session = Depends(get_db)):
         message="Event created successfully.",
         event=new_event
     )
+
+@router.get(
+    "/event/{event_id}",
+    response_model=EventResponse,
+    summary="Get a single upcoming event by ID"
+)
+def show_event(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "message": f"No event found with ID {event_id}."},
+        )
+    return EventResponse(message="Event fetched successfully.", event=event)

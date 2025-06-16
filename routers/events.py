@@ -20,8 +20,21 @@ router = APIRouter()
 IMAGE_DIR = "./uploads/events"
 os.makedirs(IMAGE_DIR, exist_ok=True)
 
-@router.post(
+@router.get(
     "/events",
+    response_model=list[EventResponse],
+    summary="List all upcoming events",
+)
+def list_events(
+    current=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Retrieve all events."""
+    events = db.query(UpComingEvents).order_by(UpComingEvents.date).all()
+    return events
+
+@router.post(
+    "/event/add",
     response_model=EventResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new upcoming event",

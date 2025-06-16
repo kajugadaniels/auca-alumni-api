@@ -18,9 +18,8 @@ class EventCreate(EventBase):
     pass  # inherits all validators
 
 class EventUpdate(BaseModel):
-    """Fields that may be updated. All optional."""
     photo: Optional[str] = Field(None, max_length=255)
-    date: Optional[date]
+    date: Optional[DateType]  # ← use DateType, not date
     description: Optional[str]
 
     @validator("photo")

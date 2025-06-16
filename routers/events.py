@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status
 
 router = APIRouter(
-    prefix="/api/events",
     tags=["events"],
     responses={404: {"description": "Not found"}},
 )
@@ -28,7 +27,7 @@ def get_events(db: Session = Depends(get_db)):
     )
 
 @router.post(
-    "/",
+    "/event/add",
     response_model=EventResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create a new upcoming event",
@@ -66,7 +65,7 @@ def add_event(event_in: EventCreate, db: Session = Depends(get_db)):
     )
 
 @router.get(
-    "/{event_id}",
+    "/event/{event_id}",
     response_model=EventResponse,
     summary="Retrieve a single event by ID",
 )
@@ -89,7 +88,7 @@ def show_event(event_id: int, db: Session = Depends(get_db)):
     )
 
 @router.put(
-    "/{event_id}",
+    "/event/{event_id}/update",
     response_model=EventResponse,
     summary="Update an existing event",
 )
@@ -125,7 +124,7 @@ def update_event(
     )
 
 @router.delete(
-    "/{event_id}",
+    "/event/{event_id}/delete",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete an event by ID",
 )

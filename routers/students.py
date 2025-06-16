@@ -1,23 +1,24 @@
-from models import *
-from database import *
-from schemas.student import *
-from sqlalchemy import asc, desc
 from typing import List, Optional
-from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import asc, desc, func
+from sqlalchemy.orm import Session
+
+from database import get_db
+from models import Students
+from schemas.student import StudentSchema, StudentListResponse
 
 router = APIRouter()
 
 @router.get(
     "",
-    response_model=List[StudentSchema],
-    summary="Retrieve a paginated list of students",
+    response_model=StudentListResponse,
+    summary="Retrieve a paginated list of students with metadata",
 )
 def get_students(
     *,
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(10, ge=1, le=100, description="Number of items per page"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by first or last name"),
     sort_by: str = Query(
         "created_at",
@@ -27,31 +28,48 @@ def get_students(
     order: str = Query(
         "desc", regex="^(asc|desc)$", description="Sort direction"
     ),
-) -> List[StudentSchema]:
+) -> StudentListResponse:
     """
-    Retrieve a paginated list of students, optionally filtered and ordered.
+    Retrieve students with:
+    - total count of matching records
+    - current page and page_size
+    - next_page and prev_page indicators
     """
-    query = db.query(Students)
+    base_q = db.query(Students)
 
-    # 1) Search filter
+    # Apply search filter
     if search:
         term = f"%{search.strip()}%"
-        query = query.filter(
+        base_q = base_q.filter(
             Students.first_name.ilike(term) | Students.last_name.ilike(term)
         )
 
-    # 2) Ordering
+    # Total count on filtered set
+    total = base_q.with_entities(func.count()).scalar()  # single-count query
+
+    # Apply ordering
     direction = asc if order == "asc" else desc
     column = getattr(Students, sort_by)
-    query = query.order_by(direction(column))
+    ordered_q = base_q.order_by(direction(column))
 
-    # 3) Pagination
+    # Pagination
     offset = (page - 1) * page_size
-    students = query.offset(offset).limit(page_size).all()
+    students = ordered_q.offset(offset).limit(page_size).all()
 
     if not students and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    return students
+    # Calculate prev/next page numbers
+    prev_page = page - 1 if page > 1 else None
+    next_page = page + 1 if offset + len(students) < total else None
 
-# git commit -m "Add students router with pagination, search, and sorting"
+    return StudentListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        next_page=next_page,
+        prev_page=prev_page,
+        items=students,
+    )
+
+# git commit -m "feat: enhance students router with total count and prev/next page"

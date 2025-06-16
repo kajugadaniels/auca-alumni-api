@@ -2,7 +2,7 @@ from base.models import *
 from account.models import *
 from django.utils import timezone
 from rest_framework import serializers
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 
 class LoginUserSerializer(serializers.Serializer):
     identifier = serializers.CharField()  # email or phone_number

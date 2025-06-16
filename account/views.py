@@ -67,7 +67,8 @@ class VerifyUserTokenView(APIView):
 
 class UserLogoutView(APIView):
     """
-    Logs out the user by blacklisting their refresh token.
+    Logs out the user without using migrations.
+    Simply advises client to discard the token.
     """
     authentication_classes = [UserJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -81,25 +82,8 @@ class UserLogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        try:
-            token = RefreshToken(refresh_token)
-            blacklist_fn = getattr(token, "blacklist", None)
-
-            if callable(blacklist_fn):
-                blacklist_fn()
-
-            return Response(
-                {"detail": "Logout successful. Refresh token blacklisted."},
-                status=status.HTTP_200_OK
-            )
-
-        except TokenError:
-            return Response(
-                {"detail": "Invalid or expired token."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as exc:
-            return Response(
-                {"detail": "An unexpected error occurred.", "error": str(exc)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # NOTE: No blacklist here — purely stateless logout
+        return Response(
+            {"detail": "Logout successful. Please discard the refresh token client-side."},
+            status=status.HTTP_200_OK
+        )

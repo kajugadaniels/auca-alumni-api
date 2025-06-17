@@ -264,10 +264,12 @@ def getEventDetails(
     else:
         status_label = "Ended"
 
-    # Build and return schema
+    # Build full photo URL
+    photo_url = request.url_for("uploads") + event.photo.lstrip("/")
+
     return UpcomingEventSchema(
         id=event.id,
-        photo=event.photo,
+        photo=photo_url,
         date=event.date,
         description=event.description,
         status=status_label,

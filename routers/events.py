@@ -237,7 +237,7 @@ async def addEvent(
     response_model=UpcomingEventSchema,
     summary="Retrieve detailed information for a single event by ID",
 )
-def get_event_by_id(
+def getEventDetails(
     event_id: int,
     db: Session = Depends(get_db),
 ):
@@ -280,7 +280,7 @@ def get_event_by_id(
     response_model=UpcomingEventSchema,
     summary="Update an existing event by ID",
 )
-async def update_event(
+async def updateEvent(
     event_id: int,
     event_date: datetime.date = Form(..., description="New date for the event"),
     description: str = Form(..., min_length=10, description="New description"),
@@ -397,7 +397,7 @@ async def update_event(
     status_code=status.HTTP_200_OK,
     summary="Delete a specific event and its associated image",
 )
-def delete_event(
+def deleteEvent(
     event_id: int,
     db: Session = Depends(get_db),
 ):

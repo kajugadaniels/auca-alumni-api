@@ -223,3 +223,46 @@ async def addEvent(
             },
         },
     )
+
+# ------------------------------------------------------------------------
+# GET /events/{event_id}: retrieve a specific event by ID
+# ------------------------------------------------------------------------
+@router.get(
+    "/events/{event_id}",
+    response_model=UpcomingEventSchema,
+    summary="Retrieve detailed information for a single event by ID",
+)
+def get_event_by_id(
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch a single event record by its ID.
+    Returns 404 if not found, otherwise all fields plus computed status.
+    """
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "event_not_found", "message": f"No event found with ID {event_id}."},
+        )
+
+    # Compute status
+    today = datetime.date.today()
+    if event.date == today:
+        status_label = "Happening"
+    elif event.date > today:
+        status_label = "Upcoming"
+    else:
+        status_label = "Ended"
+
+    # Build and return schema
+    return UpcomingEventSchema(
+        id=event.id,
+        photo=event.photo,
+        date=event.date,
+        description=event.description,
+        status=status_label,
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+    )

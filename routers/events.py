@@ -228,7 +228,7 @@ async def addEvent(
 # GET /events/{event_id}: retrieve a specific event by ID
 # ------------------------------------------------------------------------
 @router.get(
-    "/events/{event_id}",
+    "/event/{event_id}",
     response_model=UpcomingEventSchema,
     summary="Retrieve detailed information for a single event by ID",
 )
@@ -257,6 +257,123 @@ def get_event_by_id(
         status_label = "Ended"
 
     # Build and return schema
+    return UpcomingEventSchema(
+        id=event.id,
+        photo=event.photo,
+        date=event.date,
+        description=event.description,
+        status=status_label,
+        created_at=event.created_at,
+        updated_at=event.updated_at,
+    )
+
+# ------------------------------------------------------------------------
+# PUT /events/{event_id}: update an existing event
+# ------------------------------------------------------------------------
+@router.put(
+    "/event/{event_id}",
+    response_model=UpcomingEventSchema,
+    summary="Update an existing event by ID",
+)
+async def update_event(
+    event_id: int,
+    event_date: datetime.date = Form(..., description="New date for the event"),
+    description: str = Form(..., min_length=10, description="New description"),
+    photo: UploadFile | None = File(None, description="New image file (optional)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Update the event's date, description, and optionally replace its photo.
+    - Validates that the new date is not in the past.
+    - Prevents duplicate date+description combos.
+    - If a new photo is provided, replaces, renames, and crops it.
+    """
+    # 1) Fetch existing
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "event_not_found", "message": f"No event found with ID {event_id}."},
+        )
+
+    # 2) Validate date
+    if event_date < datetime.date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "date_in_past", "message": "Event date cannot be in the past."},
+        )
+
+    # 3) Prevent duplicate on new date & description
+    duplicate = (
+        db.query(UpComingEvents)
+        .filter(
+            UpComingEvents.id != event_id,
+            UpComingEvents.date == event_date,
+            UpComingEvents.description == description.strip(),
+        )
+        .first()
+    )
+    if duplicate:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "event_exists", "message": "Another event with this date and description exists."},
+        )
+
+    # 4) Update fields
+    event.date = event_date
+    event.description = description.strip()
+
+    # 5) Handle new photo if provided
+    if photo:
+        # Remove old file
+        old_path = os.path.join(os.getcwd(), event.photo.lstrip("/"))
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+
+        # Build new filename
+        slug = "".join(
+            c for c in description.lower().replace(" ", "_") if c.isalnum() or c == "_"
+        )
+        date_str = event_date.strftime("%Y%m%d")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{date_str}{ext}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+
+        # Save upload
+        with open(filepath, "wb") as out_file:
+            contents = await photo.read()
+            out_file.write(contents)
+
+        # Crop & resize
+        try:
+            img = Image.open(filepath)
+            img = img.convert("RGB")
+            img = img.resize((1270, 720), Image.LANCZOS)
+            img.save(filepath, quality=85)
+        except Exception:
+            os.remove(filepath)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_image", "message": "Uploaded file is not a valid image."},
+            )
+
+        event.photo = f"/uploads/events/{filename}"
+
+    # 6) Commit changes
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+
+    # 7) Compute status
+    today = datetime.date.today()
+    if event.date == today:
+        status_label = "Happening"
+    elif event.date > today:
+        status_label = "Upcoming"
+    else:
+        status_label = "Ended"
+
+    # 8) Respond with updated record
     return UpcomingEventSchema(
         id=event.id,
         photo=event.photo,

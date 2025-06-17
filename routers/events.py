@@ -11,7 +11,7 @@ from schemas.event import (
     EventListResponse,
 )
 
-router = APIRouter(prefix="/events", tags=["events"])
+router = APIRouter(prefix="/api/events", tags=["events"])
 
 @router.get("/", response_model=EventListResponse, summary="List all upcoming events")
 def get_events(db: Session = Depends(get_db)):

@@ -54,7 +54,7 @@ def get_all_events(
     if not raw_items and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    # 6) Annotate status
+    # 6) Annotate and build schema instances manually
     today = date.today()
     items = []
     for ev in raw_items:
@@ -65,9 +65,12 @@ def get_all_events(
         else:
             status = "Ended"
 
-        items.append(UpcomingEventSchema.from_attributes(
-            ev,  # base attributes
-            status=status
+        items.append(UpcomingEventSchema(
+            id=ev.id,
+            photo=ev.photo,
+            date=ev.date,
+            description=ev.description,
+            status=status,
         ))
 
     # 7) Build navigation URLs

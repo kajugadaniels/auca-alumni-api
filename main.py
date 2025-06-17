@@ -1,15 +1,17 @@
-"""
-Main application entry point: include routers and exception handlers.
-"""
 from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from routers import students, auth, countries, events
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 
 # Auto-create tables (or manage migrations externally)
 Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="AUCA Alumni")
+
+# Serve uploaded images
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Exception handler for Pydantic validation errors
 @app.exception_handler(RequestValidationError)

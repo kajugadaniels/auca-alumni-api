@@ -260,8 +260,17 @@ class UpComingEvents(Base):
     photo = Column(String(255), nullable=False)
     date = Column(Date, nullable=False)
     description = Column(Text, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
 
 
 class Users(Base):

@@ -2,6 +2,7 @@ from models import UpComingEvents
 from schemas.event import UpcomingEventListResponse, UpcomingEventSchema
 from database import get_db
 from typing import Optional
+from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc, func
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -11,9 +12,9 @@ router = APIRouter()
 @router.get(
     "/events",
     response_model=UpcomingEventListResponse,
-    summary="Retrieve a paginated list of upcoming events with metadata and navigation URLs",
+    summary="Retrieve a paginated list of all events, annotated with status",
 )
-def get_upcoming_events(
+def get_all_events(
     request: Request,
     *,
     db: Session = Depends(get_db),
@@ -24,18 +25,19 @@ def get_upcoming_events(
     order: str = Query("asc", regex="^(asc|desc)$", description="Sort direction"),
 ) -> UpcomingEventListResponse:
     """
-    Retrieve upcoming events with:
-    - total count of upcoming records
+    Retrieve all events with:
+    - total count of records
     - current page and page_size
     - next_page and prev_page full URLs
+    - each event includes a `status` ("Ended", "Happening", "Upcoming")
     """
-    # 1) Build base filtered query (only truly upcoming)
-    base_q = db.query(UpComingEvents).filter(UpComingEvents.date >= func.current_date())
-    # 2) Count total upcoming events
-    total = base_q.with_entities(func.count(UpComingEvents.id)).scalar()
+    # 1) Count total events
+    total = db.query(func.count(UpComingEvents.id)).scalar()
 
-    # 3) Apply optional search
-    query = base_q
+    # 2) Build base query (no date filtering)
+    query = db.query(UpComingEvents)
+
+    # 3) Optional search by description
     if search:
         term = f"%{search.strip()}%"
         query = query.filter(UpComingEvents.description.ilike(term))
@@ -45,14 +47,30 @@ def get_upcoming_events(
     column = getattr(UpComingEvents, sort_by)
     query = query.order_by(direction(column))
 
-    # 5) Apply pagination
+    # 5) Pagination
     offset = (page - 1) * page_size
-    items = query.offset(offset).limit(page_size).all()
+    raw_items = query.offset(offset).limit(page_size).all()
 
-    if not items and page != 1:
+    if not raw_items and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    # 6) Build navigation URLs
+    # 6) Annotate status
+    today = date.today()
+    items = []
+    for ev in raw_items:
+        if ev.date == today:
+            status = "Happening"
+        elif ev.date > today:
+            status = "Upcoming"
+        else:
+            status = "Ended"
+
+        items.append(UpcomingEventSchema.from_attributes(
+            ev,  # base attributes
+            status=status
+        ))
+
+    # 7) Build navigation URLs
     def make_url(p: int) -> str:
         return str(request.url.include_query_params(page=p, page_size=page_size))
 

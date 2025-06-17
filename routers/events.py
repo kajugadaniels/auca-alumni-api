@@ -271,7 +271,7 @@ def get_event_by_id(
 # PUT /events/{event_id}: update an existing event
 # ------------------------------------------------------------------------
 @router.put(
-    "/event/{event_id}",
+    "/event/{event_id}/update/",
     response_model=UpcomingEventSchema,
     summary="Update an existing event by ID",
 )

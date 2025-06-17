@@ -204,6 +204,9 @@ async def addEvent(
     else:
         status_label = "Ended"
 
+    created = new_event.created_at or datetime.datetime.utcnow()
+    updated = new_event.updated_at or created
+
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -215,8 +218,8 @@ async def addEvent(
                 "date": str(new_event.date),
                 "description": new_event.description,
                 "status": status_label,
-                "created_at": new_event.created_at.isoformat(),
-                "updated_at": new_event.updated_at.isoformat(),
+                "created_at": created.isoformat(),
+                "updated_at": updated.isoformat(),
             },
         },
     )

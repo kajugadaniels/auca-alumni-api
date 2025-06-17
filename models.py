@@ -263,13 +263,15 @@ class UpComingEvents(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        server_default=func.now(),
+        default=func.now(),        # Python‐side default
+        server_default=func.now()  # DB‐side default
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        server_default=func.now(),
-        onupdate=func.now(),
+        default=func.now(),        # Python‐side default
+        server_default=func.now(), # DB‐side default
+        onupdate=func.now()
     )
 
 

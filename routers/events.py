@@ -1,14 +1,38 @@
+import os
+import shutil
 import datetime
-from models import *
-from schemas.event import *
-from database import get_db
-from typing import Optional
+from uuid import uuid4
+from PIL import Image
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    status,
+    File,
+    UploadFile,
+    Form,
+)
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc, func
-from fastapi.responses import JSONResponse
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from database import get_db
+from models import UpComingEvents
+from schemas.event import (
+    CreateEventSchema,
+    UpcomingEventListResponse,
+    UpcomingEventSchema,
+)
 
 router = APIRouter()
+
+# Directory for event uploads
+UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "events")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 # ------------------------------------------------------------------------
 # GET /events: list all events with status
@@ -26,46 +50,33 @@ def getEvents(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by description"),
     sort_by: str = Query(
-        "created_at",
-        regex="^(id|date|created_at)$",
+        "created_at", regex="^(id|date|created_at)$",
         description="Field to sort by; defaults to creation timestamp"
     ),
     order: str = Query(
-        "desc",
-        regex="^(asc|desc)$",
+        "desc", regex="^(asc|desc)$",
         description="Sort direction; defaults to descending (latest first)"
     ),
 ) -> UpcomingEventListResponse:
     """
-    Retrieve all events with:
-    - total count of records
-    - current page and page_size
-    - next_page and prev_page full URLs
-    - each event includes a `status` ("Ended", "Happening", "Upcoming")
+    Retrieve all events with created/updated timestamps and a computed `status`.
     """
-    # 1) Total count
     total = db.query(func.count(UpComingEvents.id)).scalar()
-
-    # 2) Base query
     query = db.query(UpComingEvents)
 
-    # 3) Search filter
     if search:
         term = f"%{search.strip()}%"
         query = query.filter(UpComingEvents.description.ilike(term))
 
-    # 4) Ordering
     direction = asc if order == "asc" else desc
     column = getattr(UpComingEvents, sort_by)
     query = query.order_by(direction(column))
 
-    # 5) Pagination
     offset = (page - 1) * page_size
     raw_items = query.offset(offset).limit(page_size).all()
     if not raw_items and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    # 6) Annotate status
     today = datetime.date.today()
     items = []
     for ev in raw_items:
@@ -83,10 +94,11 @@ def getEvents(
                 date=ev.date,
                 description=ev.description,
                 status=status_label,
+                created_at=ev.created_at,
+                updated_at=ev.updated_at,
             )
         )
 
-    # 7) Navigation URLs
     def make_url(p: int) -> str:
         return str(request.url.include_query_params(page=p, page_size=page_size))
 
@@ -102,60 +114,95 @@ def getEvents(
         items=items,
     )
 
+
 # ------------------------------------------------------------------------
-# POST /events: add a new event
+# POST /events/add: create a new event with image upload
 # ------------------------------------------------------------------------
 @router.post(
-    "/event/add",
+    "/events/add",
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new event",
+    summary="Create a new event with local image upload and auto‐crop",
 )
-def addEvent(
-    data: CreateEventSchema,
+async def addEvent(
+    event_date: datetime.date = Form(...),
+    description: str = Form(..., min_length=10),
+    photo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
     """
-    Create and persist a new upcoming event.
-    Returns detailed success or error messages.
+    Accepts:
+    - `event_date` (must not be in the past)
+    - `description`
+    - `photo` (image file)
+
+    Saves the cropped image (1270×720) under /uploads/events,
+    names it `{slug}_{YYYYMMDD}{ext}`, and persists the record.
     """
-    # 1) Prevent duplicate on same date & description
-    existing = (
-        db.query(UpComingEvents)
-        .filter(
-            UpComingEvents.date == data.event_date,
-            UpComingEvents.description == data.description.strip(),
-        )
-        .first()
-    )
-    if existing:
+    # Validate date
+    if event_date < datetime.date.today():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "event_exists",
-                "message": f"An event on {data.event_date} with the same description already exists.",
-            },
+            detail={"error": "date_in_past", "message": "Event date cannot be in the past."},
         )
 
-    # 2) Create and save
+    # Prevent exact duplicates
+    if (
+        db.query(UpComingEvents)
+        .filter(
+            UpComingEvents.date == event_date,
+            UpComingEvents.description == description.strip(),
+        )
+        .first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "event_exists", "message": "An identical event already exists."},
+        )
+
+    # Determine filename
+    slug = "".join(e for e in description.lower().replace(" ", "_") if e.isalnum() or e == "_")
+    date_str = event_date.strftime("%Y%m%d")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{date_str}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # Save and crop
+    with open(filepath, "wb") as out_file:
+        contents = await photo.read()
+        out_file.write(contents)
+
+    try:
+        img = Image.open(filepath)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except Exception:
+        # clean up on failure
+        os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_image", "message": "Uploaded file is not a valid image."},
+        )
+
+    # Persist
     new_event = UpComingEvents(
-        photo=str(data.photo),
-        date=data.event_date,
-        description=data.description.strip(),
+        photo=f"/uploads/events/{filename}",
+        date=event_date,
+        description=description.strip(),
     )
     db.add(new_event)
     db.commit()
     db.refresh(new_event)
 
-    # 3) Compute status for the created event
+    # Compute status
     today = datetime.date.today()
-    if new_event.date == today:
+    if event_date == today:
         status_label = "Happening"
-    elif new_event.date > today:
+    elif event_date > today:
         status_label = "Upcoming"
     else:
         status_label = "Ended"
 
-    # 4) Return success JSON
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -167,6 +214,8 @@ def addEvent(
                 "date": str(new_event.date),
                 "description": new_event.description,
                 "status": status_label,
+                "created_at": new_event.created_at.isoformat(),
+                "updated_at": new_event.updated_at.isoformat(),
             },
         },
     )

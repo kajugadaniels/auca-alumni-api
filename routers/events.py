@@ -27,8 +27,13 @@ from schemas.event import (
     UpcomingEventListResponse,
     UpcomingEventSchema,
 )
+from routers.auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(
+    dependencies=[Depends(get_current_user)],
+    # prefix="/api",
+    tags=["events"],
+)
 
 # Directory for event uploads
 UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "events")

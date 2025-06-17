@@ -1,9 +1,8 @@
 import datetime
 from typing import List, Optional
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 class CreateEventSchema(BaseModel):
-    photo: HttpUrl = Field(..., description="URL to the event photo")
     event_date: datetime.date = Field(..., description="Date when the event takes place")
     description: str = Field(..., min_length=10, description="Event description")
 
@@ -19,6 +18,8 @@ class UpcomingEventSchema(BaseModel):
     date: datetime.date
     description: str
     status: str  # "Ended", "Happening", or "Upcoming"
+    created_at: datetime.datetime
+    updated_at: datetime.datetime
 
     model_config = {
         "from_attributes": True

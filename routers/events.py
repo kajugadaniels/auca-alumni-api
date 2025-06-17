@@ -100,7 +100,7 @@ def get_all_events(
 # POST /events: add a new event
 # ------------------------------------------------------------------------
 @router.post(
-    "/events",
+    "/event/add",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new event",
 )

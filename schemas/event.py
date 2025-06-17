@@ -1,48 +1,47 @@
-from pydantic import BaseModel, Field, validator
-from datetime import date as DateType
+# schemas/event.py
+
+from datetime import date
+from pydantic import BaseModel, Field, HttpUrl, validator
 from typing import Optional
 
 class EventBase(BaseModel):
-    photo: str = Field(..., max_length=255, description="URL to event photo")
-    date: DateType = Field(..., description="Date of the event")   # now uses DateType
-    description: str = Field(..., description="Detailed description")
+    photo: HttpUrl = Field(..., description="URL to the event image")
+    date: date = Field(..., description="Date of the event (YYYY-MM-DD)")
+    description: str = Field(..., min_length=10, max_length=1000, description="Detailed description")
 
-    @validator("photo")
-    def must_be_valid_url(cls, v):
-        if not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("Photo must be a valid URL")
+    @validator("date")
+    def date_not_in_past(cls, v: date):
+        if v < date.today():
+            raise ValueError("Event date cannot be in the past")
         return v
 
 class EventCreate(EventBase):
-    """Fields required to create a new event."""
-    pass  # inherits all validators
+    """Schema for creating a new event."""
+    pass
 
 class EventUpdate(BaseModel):
-    photo: Optional[str] = Field(None, max_length=255)
-    date: Optional[DateType]  # ← use DateType, not date
-    description: Optional[str]
+    """Schema for updating an existing event."""
+    photo: Optional[HttpUrl] = None
+    date: Optional[date] = None
+    description: Optional[str] = Field(None, min_length=10, max_length=1000)
 
-    @validator("photo")
-    def must_be_valid_url(cls, v):
-        if v and not (v.startswith("http://") or v.startswith("https://")):
-            raise ValueError("Photo must be a valid URL (http or https)")
+    @validator("date")
+    def date_not_in_past(cls, v: date):
+        if v and v < date.today():
+            raise ValueError("Event date cannot be in the past")
         return v
 
-class EventInDB(EventBase):
-    """Fields stored in the database."""
-    id: int
-
-    class Config:
-        orm_mode = True
-
 class EventResponse(BaseModel):
-    """Standard response wrap for a single event."""
-    status: str = "success"
-    message: str
-    event: EventInDB
+    id: int
+    photo: HttpUrl
+    date: date
+    description: str
 
-class EventsListResponse(BaseModel):
-    """Standard response wrap for multiple events."""
+    model_config = {"from_attributes": True}
+
+class EventListResponse(BaseModel):
     status: str = "success"
     message: str
-    events: list[EventInDB]
+    data: list[EventResponse]
+
+    model_config = {"from_attributes": True}

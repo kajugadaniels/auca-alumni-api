@@ -18,7 +18,7 @@ router = APIRouter()
     response_model=UpcomingEventListResponse,
     summary="Retrieve a paginated list of all events, annotated with status",
 )
-def get_all_events(
+def getEvents(
     request: Request,
     *,
     db: Session = Depends(get_db),
@@ -26,9 +26,15 @@ def get_all_events(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by description"),
     sort_by: str = Query(
-        "date", regex="^(id|date|created_at)$", description="Field to sort by"
+        "created_at",
+        regex="^(id|date|created_at)$",
+        description="Field to sort by; defaults to creation timestamp"
     ),
-    order: str = Query("asc", regex="^(asc|desc)$", description="Sort direction"),
+    order: str = Query(
+        "desc",
+        regex="^(asc|desc)$",
+        description="Sort direction; defaults to descending (latest first)"
+    ),
 ) -> UpcomingEventListResponse:
     """
     Retrieve all events with:
@@ -104,7 +110,7 @@ def get_all_events(
     status_code=status.HTTP_201_CREATED,
     summary="Create a new event",
 )
-def create_event(
+def addEvent(
     data: CreateEventSchema,
     db: Session = Depends(get_db),
 ):

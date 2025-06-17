@@ -1,11 +1,11 @@
-from models import UpComingEvents
-from schemas.event import UpcomingEventListResponse, UpcomingEventSchema
+from models import *
+from datetime import date
+from schemas.event import *
 from database import get_db
 from typing import Optional
-from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc, func
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body, status
 
 router = APIRouter()
 
@@ -87,4 +87,55 @@ def get_all_events(
         next_page=next_page,
         prev_page=prev_page,
         items=items,
+    )
+
+@router.post(
+    "/event/add",
+    response_model=UpcomingEventSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new event",
+)
+def create_event(
+    data: UpcomingEventCreateSchema = Body(...),
+    db: Session = Depends(get_db),
+) -> JSONResponse:
+    """
+    Create a new event record.
+    Returns 201 with the created event on success,
+    or 400 with error details on failure.
+    """
+    try:
+        new_event = UpComingEvents(
+            photo=data.photo.strip(),
+            date=data.date,
+            description=data.description.strip(),
+        )
+        db.add(new_event)
+        db.commit()
+        db.refresh(new_event)
+
+    except IntegrityError as e:
+        db.rollback()
+        # Could inspect e.orig for specific constraint, but generic message:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "status": "error",
+                "message": "Failed to create event due to database constraint.",
+                "details": str(e.orig),
+            },
+        )
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Event created successfully.",
+            "event": {
+                "id": new_event.id,
+                "photo": new_event.photo,
+                "date": new_event.date.isoformat(),
+                "description": new_event.description,
+            },
+        },
     )

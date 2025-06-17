@@ -1,5 +1,3 @@
-# schemas/event.py
-
 from datetime import date
 from pydantic import BaseModel, Field, HttpUrl, validator
 from typing import Optional

@@ -1,5 +1,5 @@
+import datetime
 from models import *
-from datetime import date
 from schemas.event import *
 from database import get_db
 from typing import Optional
@@ -60,7 +60,7 @@ def get_all_events(
         raise HTTPException(status_code=404, detail="Page out of range")
 
     # 6) Annotate status
-    today = date.today()
+    today = datetime.date.today()
     items = []
     for ev in raw_items:
         if ev.date == today:
@@ -116,7 +116,7 @@ def create_event(
     existing = (
         db.query(UpComingEvents)
         .filter(
-            UpComingEvents.date == data.date,
+            UpComingEvents.date == data.event_date,
             UpComingEvents.description == data.description.strip(),
         )
         .first()
@@ -126,14 +126,14 @@ def create_event(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "event_exists",
-                "message": f"An event on {data.date} with the same description already exists.",
+                "message": f"An event on {data.event_date} with the same description already exists.",
             },
         )
 
     # 2) Create and save
     new_event = UpComingEvents(
         photo=str(data.photo),
-        date=data.date,
+        date=data.event_date,
         description=data.description.strip(),
     )
     db.add(new_event)
@@ -141,7 +141,7 @@ def create_event(
     db.refresh(new_event)
 
     # 3) Compute status for the created event
-    today = date.today()
+    today = datetime.date.today()
     if new_event.date == today:
         status_label = "Happening"
     elif new_event.date > today:

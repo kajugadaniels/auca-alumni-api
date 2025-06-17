@@ -50,7 +50,7 @@ app.include_router(
 )
 
 app.include_router(
-    events.router,
-    prefix="/api",
+    routers.events.router,
+    prefix="/api/events",
     tags=["events"],
 )

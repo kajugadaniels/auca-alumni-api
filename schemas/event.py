@@ -7,6 +7,7 @@ class UpcomingEventSchema(BaseModel):
     photo: str
     date: date
     description: str
+    status: str  # "Ended", "Happening", or "Upcoming"
 
     model_config = {
         "from_attributes": True

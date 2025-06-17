@@ -1,6 +1,7 @@
 import os
 import shutil
 import datetime
+from typing import Optional
 from uuid import uuid4
 from PIL import Image
 
@@ -119,7 +120,7 @@ def getEvents(
 # POST /events/add: create a new event with image upload
 # ------------------------------------------------------------------------
 @router.post(
-    "/events/add",
+    "/event/add",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new event with local image upload and auto‐crop",
 )

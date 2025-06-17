@@ -4,7 +4,7 @@ Main application entry point: include routers and exception handlers.
 from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from routers import students, auth, countries
+from routers import students, auth, countries, events
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 
 # Auto-create tables (or manage migrations externally)
@@ -47,4 +47,10 @@ app.include_router(
     countries.router,
     prefix="/api",
     tags=["countries"],
+)
+
+app.include_router(
+    events.router,
+    prefix="/api",
+    tags=["events"],
 )

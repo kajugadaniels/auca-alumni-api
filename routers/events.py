@@ -1,5 +1,5 @@
 from models import *
-from schemas.* import *
+from schemas.event import *
 from database import get_db
 from typing import List, Optional
 from sqlalchemy.orm import Session

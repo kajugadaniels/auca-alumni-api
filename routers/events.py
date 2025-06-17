@@ -383,3 +383,50 @@ async def update_event(
         created_at=event.created_at,
         updated_at=event.updated_at,
     )
+
+# ------------------------------------------------------------------------
+# DELETE /events/{event_id}: delete an event and its image
+# ------------------------------------------------------------------------
+@router.delete(
+    "/event/{event_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific event and its associated image",
+)
+def delete_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the event record identified by `event_id`.
+    Also removes the corresponding image file from disk.
+    Returns a success message, or 404 if not found.
+    """
+    # 1) Fetch the event
+    event = db.query(UpComingEvents).get(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "event_not_found", "message": f"No event found with ID {event_id}."},
+        )
+
+    # 2) Delete the image file
+    image_path = os.path.join(os.getcwd(), event.photo.lstrip("/"))
+    if os.path.isfile(image_path):
+        try:
+            os.remove(image_path)
+        except Exception:
+            # Log the error in real-world apps
+            pass
+
+    # 3) Delete the database record
+    db.delete(event)
+    db.commit()
+
+    # 4) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": f"Event with ID {event_id} has been deleted successfully."
+        },
+    )

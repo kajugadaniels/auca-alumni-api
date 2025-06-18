@@ -5,6 +5,7 @@ from uuid import uuid4
 from typing import Optional
 
 from fastapi import (
+    Form,
     APIRouter,
     Depends,
     HTTPException,
@@ -34,7 +35,7 @@ router = APIRouter(
     response_model=NewsListResponse,
     summary="Retrieve a paginated list of latest news with full image URLs",
 )
-def list_news(
+def getNews(
     request: Request,
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number (1-indexed)"),
@@ -113,57 +114,58 @@ def list_news(
 # POST /news/add: create a new news item with image upload
 # ------------------------------------------------------------------------
 @router.post(
-    "/add",
+    "/event/add",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new latest news entry with image upload and auto-crop",
 )
-async def add_news(
+async def addNews(
     request: Request,
-    title: str = Depends(CreateNewsSchema.__fields__['title'].validate),
-    date: datetime.date = Depends(CreateNewsSchema.__fields__['date'].validate),
-    description: str = Depends(CreateNewsSchema.__fields__['description'].validate),
+    title: str = Form(..., min_length=5, description="Headline of the news item"),
+    date: datetime.date = Form(..., description="Publication date of the news"),
+    description: str = Form(..., min_length=10, description="Full news description"),
     photo: UploadFile = File(..., description="Image file for the news item"),
     db: Session = Depends(get_db),
 ):
     """
-    Accepts:
-    - `title`
-    - `date` (not in the future)
-    - `description`
-    - `photo` file
-    
-    Saves the cropped image (1270×720) under /uploads/news,
-    names it `{slug}_{YYYYMMDD}{ext}`, and persists the record.
-    Returns detailed success or error message.
+    Accepts title, date, description, and photo;
+    validates via CreateNewsSchema; saves & crops the image;
+    persists the record; returns detailed response.
     """
-    # 1) Prevent duplicate title+date
-    existing = (
+    # 1) Validate input via Pydantic
+    try:
+        data = CreateNewsSchema(title=title, date=date, description=description)
+    except ValidationError as e:
+        # Convert Pydantic errors into FastAPI HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=e.errors(),
+        )
+
+    # 2) Prevent duplicate title+date
+    if (
         db.query(LatestNews)
-        .filter(LatestNews.title == title.strip(), LatestNews.date == date)
+        .filter(LatestNews.title == data.title, LatestNews.date == data.date)
         .first()
-    )
-    if existing:
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "news_exists",
-                "message": f"A news item titled '{title}' on {date} already exists.",
+                "message": f"A news item titled '{data.title}' on {data.date} already exists.",
             },
         )
 
-    # 2) Build filename
-    slug = "".join(
-        c for c in title.lower().replace(" ", "_") if c.isalnum() or c == "_"
-    )
-    date_str = date.strftime("%Y%m%d")
+    # 3) Build filename
+    slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+    date_str = data.date.strftime("%Y%m%d")
     ext = os.path.splitext(photo.filename)[1] or ".jpg"
     filename = f"{slug}_{date_str}{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
 
-    # 3) Save and crop image
+    # 4) Save & crop
     contents = await photo.read()
-    with open(filepath, "wb") as out_file:
-        out_file.write(contents)
+    with open(filepath, "wb") as f:
+        f.write(contents)
 
     try:
         img = Image.open(filepath)
@@ -174,27 +176,24 @@ async def add_news(
         os.remove(filepath)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": "invalid_image",
-                "message": "Uploaded file is not a valid image.",
-            },
+            detail={"error": "invalid_image", "message": "Uploaded file is not a valid image."},
         )
 
-    # 4) Persist record
+    # 5) Persist record
     new_news = LatestNews(
-        title=title.strip(),
-        date=date,
-        description=description.strip(),
+        title=data.title,
+        date=data.date,
+        description=data.description,
         photo=f"/uploads/news/{filename}",
     )
     db.add(new_news)
     db.commit()
     db.refresh(new_news)
 
-    # 5) Build full photo URL
+    # 6) Build full URL
     photo_url = str(request.base_url).rstrip("/") + new_news.photo
 
-    # 6) Return success JSON
+    # 7) Return
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={

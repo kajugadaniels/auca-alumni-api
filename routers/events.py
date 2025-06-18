@@ -242,6 +242,7 @@ async def addEvent(
 )
 def getEventDetails(
     event_id: int,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """

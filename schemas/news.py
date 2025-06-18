@@ -7,12 +7,12 @@ class CreateNewsSchema(BaseModel):
     date: datetime.date = Field(..., description="Date of the news item")
     description: str = Field(..., min_length=10, description="News description")
 
-    @field_validator("date")
-    def date_not_in_future(cls, v: datetime.date) -> datetime.date:
-        # Latest news date should not be in the future
-        if v > datetime.date.today():
-            raise ValueError("News date cannot be in the future")
-        return v
+    # @field_validator("date")
+    # def date_not_in_future(cls, v: datetime.date) -> datetime.date:
+    #     # Latest news date should not be in the future
+    #     if v > datetime.date.today():
+    #         raise ValueError("News date cannot be in the future")
+    #     return v
 
 class LatestNewsSchema(BaseModel):
     id: int

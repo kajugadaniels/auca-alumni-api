@@ -12,6 +12,7 @@ from fastapi import (
     File,
     Form,
     Request,
+    Query,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -19,7 +20,7 @@ from sqlalchemy import func
 
 from database import get_db
 from models import LatestNews
-from schemas.news import CreateNewsSchema, LatestNewsSchema
+from schemas.news import CreateNewsSchema, LatestNewsSchema, LatestNewsListResponse
 from routers.auth import get_current_user
 
 router = APIRouter(
@@ -129,11 +130,11 @@ def list_news(
     summary="Create a new latest news item with image upload and auto-crop",
 )
 async def add_news(
+    request: Request,
     title: str = Form(..., min_length=5, description="News title"),
     date: datetime.date = Form(..., description="Date of the news"),
     description: str = Form(..., min_length=10, description="News description"),
     photo: UploadFile = File(..., description="Image file for the news"),
-    request: Request,
     db: Session = Depends(get_db),
 ):
     """

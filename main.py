@@ -2,7 +2,7 @@ from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from routers import students, auth, countries, events
+from routers import students, auth, countries, events, news
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 
 # Auto-create tables (or manage migrations externally)
@@ -55,4 +55,11 @@ app.include_router(
     events.router,
     prefix="/api",
     tags=["events"],
+)
+
+
+app.include_router(
+    news.router,
+    prefix="/api",
+    tags=["news"],
 )

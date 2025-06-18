@@ -36,7 +36,7 @@ def list_news(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by title or description"),
     sort_by: str = Query(
-        "date", regex="^(id|date|created_at)$", description="Field to sort by"
+        "created_at", regex="^(id|date|created_at)$", description="Field to sort by"
     ),
     order: str = Query("desc", regex="^(asc|desc)$", description="Sort direction"),
 ) -> NewsListResponse:

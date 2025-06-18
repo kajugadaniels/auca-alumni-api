@@ -8,6 +8,7 @@ from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     status,
     File,
@@ -17,10 +18,10 @@ from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
 
-from database import get_db
 from models import *
-from schemas.news import *
+from database import get_db
 from routers.auth import get_current_user
+from schemas.news import CreateNewsSchema, NewsListResponse, NewsSchema
 
 router = APIRouter(
     prefix="/news",

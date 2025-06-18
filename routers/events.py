@@ -94,7 +94,7 @@ def getEvents(
             status_label = "Ended"
 
         # Build full photo URL
-        photo_url = request.url_for("uploads") + ev.photo.lstrip("/")
+        photo_url = str(request.base_url).rstrip("/") + ev.photo
 
         items.append(
             UpcomingEventSchema(
@@ -265,7 +265,7 @@ def getEventDetails(
         status_label = "Ended"
 
     # Build full photo URL
-    photo_url = request.url_for("uploads") + event.photo.lstrip("/")
+    photo_url = str(request.base_url).rstrip("/") + event.photo
 
     return UpcomingEventSchema(
         id=event.id,

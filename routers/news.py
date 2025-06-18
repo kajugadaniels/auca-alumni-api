@@ -1,21 +1,25 @@
+import os
 import datetime
+from PIL import Image
+from uuid import uuid4
 from typing import Optional
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
-    Query,
     Request,
     status,
+    File,
+    UploadFile,
 )
 from sqlalchemy import asc, desc, func
 from sqlalchemy.orm import Session
 from fastapi.responses import JSONResponse
 
 from database import get_db
-from models import LatestNews
-from schemas.news import NewsListResponse, NewsSchema
+from models import *
+from schemas.news import *
 from routers.auth import get_current_user
 
 router = APIRouter(
@@ -102,4 +106,107 @@ def list_news(
         next_page=next_page,
         prev_page=prev_page,
         items=items,
+    )
+
+# ------------------------------------------------------------------------
+# POST /news/add: create a new news item with image upload
+# ------------------------------------------------------------------------
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new latest news entry with image upload and auto-crop",
+)
+async def add_news(
+    request: Request,
+    title: str = Depends(CreateNewsSchema.__fields__['title'].validate),
+    date: datetime.date = Depends(CreateNewsSchema.__fields__['date'].validate),
+    description: str = Depends(CreateNewsSchema.__fields__['description'].validate),
+    photo: UploadFile = File(..., description="Image file for the news item"),
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts:
+    - `title`
+    - `date` (not in the future)
+    - `description`
+    - `photo` file
+    
+    Saves the cropped image (1270×720) under /uploads/news,
+    names it `{slug}_{YYYYMMDD}{ext}`, and persists the record.
+    Returns detailed success or error message.
+    """
+    # 1) Prevent duplicate title+date
+    existing = (
+        db.query(LatestNews)
+        .filter(LatestNews.title == title.strip(), LatestNews.date == date)
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "news_exists",
+                "message": f"A news item titled '{title}' on {date} already exists.",
+            },
+        )
+
+    # 2) Build filename
+    slug = "".join(
+        c for c in title.lower().replace(" ", "_") if c.isalnum() or c == "_"
+    )
+    date_str = date.strftime("%Y%m%d")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{date_str}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # 3) Save and crop image
+    contents = await photo.read()
+    with open(filepath, "wb") as out_file:
+        out_file.write(contents)
+
+    try:
+        img = Image.open(filepath)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except Exception:
+        os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_image",
+                "message": "Uploaded file is not a valid image.",
+            },
+        )
+
+    # 4) Persist record
+    new_news = LatestNews(
+        title=title.strip(),
+        date=date,
+        description=description.strip(),
+        photo=f"/uploads/news/{filename}",
+    )
+    db.add(new_news)
+    db.commit()
+    db.refresh(new_news)
+
+    # 5) Build full photo URL
+    photo_url = str(request.base_url).rstrip("/") + new_news.photo
+
+    # 6) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "News item created successfully.",
+            "news": {
+                "id": new_news.id,
+                "title": new_news.title,
+                "date": str(new_news.date),
+                "description": new_news.description,
+                "photo": photo_url,
+                "created_at": new_news.created_at.isoformat(),
+                "updated_at": new_news.updated_at.isoformat(),
+            },
+        },
     )

@@ -42,7 +42,7 @@ os.makedirs(NEWS_UPLOAD_DIR, exist_ok=True)
     response_model=LatestNewsListResponse,
     summary="Retrieve a paginated list of latest news items with full metadata and image URLs",
 )
-def list_news(
+def getNews(
     request: Request,
     *,
     db: Session = Depends(get_db),
@@ -129,7 +129,7 @@ def list_news(
     status_code=status.HTTP_201_CREATED,
     summary="Create a new latest news item with image upload and auto-crop",
 )
-async def add_news(
+async def addNews(
     request: Request,
     title: str = Form(..., min_length=5, description="News title"),
     date: datetime.date = Form(..., description="Date of the news"),
@@ -235,7 +235,7 @@ async def add_news(
     response_model=LatestNewsSchema,
     summary="Retrieve detailed information for a single news item by ID",
 )
-def get_news_by_id(
+def newsDetails(
     news_id: int,
     request: Request,
     db: Session = Depends(get_db),
@@ -278,7 +278,7 @@ def get_news_by_id(
     response_model=LatestNewsSchema,
     summary="Update an existing news item by ID",
 )
-async def update_news(
+async def updateNews(
     news_id: int,
     request: Request,
     title: str = Form(..., min_length=5, description="Updated news title"),
@@ -397,11 +397,11 @@ async def update_news(
 # DELETE /news/{news_id}: delete a news item and its image
 # ------------------------------------------------------------------------
 @router.delete(
-    "/{news_id}",
+    "/news/{news_id}/delete",
     status_code=status.HTTP_200_OK,
     summary="Delete a specific news item and its associated image",
 )
-def delete_news(
+def deleteNews(
     news_id: int,
     db: Session = Depends(get_db),
 ):

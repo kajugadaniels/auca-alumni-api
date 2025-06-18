@@ -274,7 +274,7 @@ def get_news_by_id(
 # PUT /news/{news_id}: update an existing news item
 # ------------------------------------------------------------------------
 @router.put(
-    "/{news_id}",
+    "/news/{news_id}/update",
     response_model=LatestNewsSchema,
     summary="Update an existing news item by ID",
 )

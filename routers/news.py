@@ -19,7 +19,7 @@ from schemas.news import LatestNewsSchema, LatestNewsListResponse
 from routers.auth import get_current_user
 
 router = APIRouter(
-    prefix="/news",
+    # prefix="/news",
     tags=["news"],
     dependencies=[Depends(get_current_user)],
 )
@@ -33,7 +33,7 @@ os.makedirs(NEWS_UPLOAD_DIR, exist_ok=True)
 # GET /news: list all news with pagination
 # ------------------------------------------------------------------------
 @router.get(
-    "/",
+    "/news",
     response_model=LatestNewsListResponse,
     summary="Retrieve a paginated list of latest news items with full metadata and image URLs",
 )
@@ -45,7 +45,7 @@ def list_news(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by title or description"),
     sort_by: str = Query(
-        "date",
+        "created_at",
         regex="^(id|date|created_at)$",
         description="Field to sort by; defaults to `date`",
     ),

@@ -46,12 +46,12 @@ def list_social_activities(
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by title or description"),
     sort_by: str = Query(
-        "date",
+        "created_at",
         regex="^(id|date|created_at)$",
         description="Field to sort by; defaults to `date`",
     ),
     order: str = Query(
-        "asc",
+        "desc",
         regex="^(asc|desc)$",
         description="Sort direction; defaults to ascending (earliest first)",
     ),

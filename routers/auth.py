@@ -2,16 +2,14 @@ import os
 import random
 import smtplib
 from email.message import EmailMessage
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Body
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer
-
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from fastapi.security import OAuth2PasswordBearer
 
 from database import get_db
-from models import Users, Students
+from models import *
 from schemas.auth import (
     RegistrationInitiateSchema,
     RegistrationCompleteSchema,

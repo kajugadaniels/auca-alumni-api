@@ -367,3 +367,53 @@ async def update_program(
         created_at=prog.created_at,
         updated_at=prog.updated_at,
     )
+
+# ------------------------------------------------------------------------
+# DELETE /programs/{program_id}: delete a program and its image
+# ------------------------------------------------------------------------
+@router.delete(
+    "/{program_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific program and its associated image",
+)
+def delete_program(
+    program_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the program record identified by `program_id`.
+    Also removes the corresponding image file from disk.
+    Returns a success message, or 404 if not found.
+    """
+    # 1) Fetch the program
+    prog = db.query(Programs).get(program_id)
+    if not prog:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "program_not_found",
+                "message": f"No program found with ID {program_id}."
+            },
+        )
+
+    # 2) Delete the image file
+    image_path = os.path.join(os.getcwd(), prog.photo.lstrip("/"))
+    if os.path.isfile(image_path):
+        try:
+            os.remove(image_path)
+        except Exception:
+            # In production, log this error
+            pass
+
+    # 3) Delete the database record
+    db.delete(prog)
+    db.commit()
+
+    # 4) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": f"Program with ID {program_id} has been deleted successfully."
+        },
+    )

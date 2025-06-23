@@ -232,3 +232,43 @@ async def add_social_activity(
             },
         },
     )
+
+@router.get(
+    "/{activity_id}",
+    response_model=SocialActivitySchema,
+    summary="Retrieve detailed information for a single social activity by ID",
+)
+def get_social_activity(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch a single SocialActivities record by its ID.
+    Returns 404 if not found, otherwise all fields plus full image URL.
+    """
+    # 1) Load the record
+    activity = db.query(SocialActivities).get(activity_id)
+    if not activity:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "activity_not_found",
+                "message": f"No social activity found with ID {activity_id}."
+            },
+        )
+
+    # 2) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{activity.photo}"
+
+    # 3) Return as schema
+    return SocialActivitySchema(
+        id=activity.id,
+        photo=photo_url,
+        title=activity.title,
+        description=activity.description,
+        date=activity.date,
+        created_at=activity.created_at,
+        updated_at=activity.updated_at,
+    )

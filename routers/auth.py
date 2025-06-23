@@ -1,21 +1,53 @@
-"""
-Unified authentication router: handles /api/auth/register, /api/auth/login, and /api/auth/verify-token
-"""
-from models import *
-from schemas.auth import *
-from database import get_db
-from utils.security import *
+import os
+import random
+import smtplib
+from email.message import EmailMessage
+from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
-from fastapi.responses import JSONResponse
+
+from database import get_db
+from models import Users, Students
+from schemas.auth import (
+    UserRegisterSchema,
+    UserResponseSchema,
+    LoginSchema,
+    TokenSchema,
+    VerifyTokenResponse,
+    LogoutResponse,
+)
+from utils.security import create_access_token, verify_password, decode_access_token
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+
+# Load SMTP creds from env
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_PASS = os.getenv("EMAIL_HOST_PASSWORD")
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 # Register
+
+def send_otp_email(recipient: str, otp: str):
+    """
+    Send the OTP via Gmail SMTP.
+    """
+    msg = EmailMessage()
+    msg["Subject"] = "Your AUCA Alumni Registration OTP"
+    msg["From"] = EMAIL_USER
+    msg["To"] = recipient
+    msg.set_content(f"Your OTP code is: {otp}\nThis code will expire in 15 minutes.")
+
+    with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+        if EMAIL_USE_TLS:
+            server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
 
 @router.post(
     "/register",

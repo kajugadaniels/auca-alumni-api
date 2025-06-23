@@ -44,11 +44,11 @@ def list_professions(
         description="Field to sort by",
     ),
     order: str = Query(
-        "asc",
+        "desc",
         regex="^(asc|desc)$",
         description="Sort direction",
     ),
-):
+) -> ProfessionListResponse:
     """
     List professions with pagination and optional name search.
     """
@@ -67,9 +67,8 @@ def list_professions(
     if not raw_items and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    items = [
-        ProfessionSchema.from_attributes(prof) for prof in raw_items
-    ]
+    # Use model_validate() instead of from_attributes()
+    items = [ProfessionSchema.model_validate(prof) for prof in raw_items]
 
     def make_url(p: int) -> str:
         return str(request.url.include_query_params(page=p, page_size=page_size))
@@ -128,16 +127,13 @@ def get_profession(
     profession_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    Fetch a profession by its ID.
-    """
     prof = db.query(Professions).get(profession_id)
     if not prof:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "not_found", "message": f"No profession found with ID {profession_id}."},
         )
-    return ProfessionSchema.from_attributes(prof)
+    return ProfessionSchema.model_validate(prof)
 
 @router.put(
     "/{profession_id}/update",

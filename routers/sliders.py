@@ -292,3 +292,45 @@ async def update_slider(
         created_at=slide.created_at,
         updated_at=slide.updated_at,
     )
+
+# ------------------------------------------------------------------------
+# DELETE /sliders/{slider_id}/delete: delete a slider and its image
+# ------------------------------------------------------------------------
+@router.delete(
+    "/{slider_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific slider and its associated image",
+)
+def delete_slider(
+    slider_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the slider record identified by `slider_id`.
+    Also removes its image from disk.
+    """
+    # 1) Fetch the slider
+    slide = db.query(Sliders).get(slider_id)
+    if not slide:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "slider_not_found", "message": f"No slider found with ID {slider_id}."},
+        )
+
+    # 2) Delete image file
+    image_path = os.path.join(os.getcwd(), slide.photo.lstrip("/"))
+    if os.path.isfile(image_path):
+        try:
+            os.remove(image_path)
+        except Exception:
+            pass
+
+    # 3) Delete DB record
+    db.delete(slide)
+    db.commit()
+
+    # 4) Return success
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "success", "message": f"Slider with ID {slider_id} deleted successfully."},
+    )

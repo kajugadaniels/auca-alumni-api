@@ -2,14 +2,19 @@ import os
 import random
 import smtplib
 from email.message import EmailMessage
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer
+
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
 from database import get_db
 from models import Users, Students
 from schemas.auth import (
+    RegistrationInitiateSchema,
+    RegistrationCompleteSchema,
     UserRegisterSchema,
     UserResponseSchema,
     LoginSchema,
@@ -18,7 +23,6 @@ from schemas.auth import (
     LogoutResponse,
 )
 from utils.security import create_access_token, verify_password, decode_access_token
-from fastapi.security import OAuth2PasswordBearer
 
 # Load SMTP creds from env
 EMAIL_HOST = os.getenv("EMAIL_HOST")
@@ -31,7 +35,6 @@ router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
-# Register
 
 def send_otp_email(recipient: str, otp: str):
     """
@@ -49,6 +52,7 @@ def send_otp_email(recipient: str, otp: str):
         server.login(EMAIL_USER, EMAIL_PASS)
         server.send_message(msg)
 
+
 # ------------------------------------------------------------------------
 # STEP 1: Initiate registration by sending OTP
 # ------------------------------------------------------------------------
@@ -58,14 +62,7 @@ def send_otp_email(recipient: str, otp: str):
     summary="Initiate registration: verify student and send OTP to email",
 )
 def initiate_registration(
-    data: UserRegisterSchema = Body(
-        ...,
-        example={
-            "email": "student@example.com",
-            "student_id": 123,
-            "phone_number": "+250788123456"
-        },
-    ),
+    data: RegistrationInitiateSchema,
     db: Session = Depends(get_db),
 ):
     """
@@ -74,7 +71,6 @@ def initiate_registration(
     3) Generate 6-digit OTP, store in remember_token.
     4) Email OTP to the user.
     """
-    # 1) Verify student exists
     student = db.query(Students).filter_by(id=data.student_id).first()
     if not student:
         raise HTTPException(
@@ -85,7 +81,6 @@ def initiate_registration(
             },
         )
 
-    # 2) Prevent duplicate
     existing = (
         db.query(Users)
         .filter((Users.email == data.email) | (Users.student_id == data.student_id))
@@ -100,36 +95,31 @@ def initiate_registration(
             },
         )
 
-    # 3) Create placeholder user with OTP in remember_token
     otp = f"{random.randint(0, 999999):06d}"
     new_user = Users(
         email=data.email,
-        password="",                      # will set later
+        password="",  # to be set later
         student_id=data.student_id,
         phone_number=data.phone_number,
         first_name=student.first_name,
         last_name=student.last_name,
-        remember_token=otp,               # store OTP here
+        remember_token=otp,
     )
     db.add(new_user)
     db.commit()
 
-    # 4) Send the OTP email
     try:
         send_otp_email(data.email, otp)
-    except Exception as e:
-        # Roll back user creation on email failure
+    except Exception:
         db.delete(new_user)
         db.commit()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "error": "email_failed",
-                "message": "Failed to send OTP email. Please try again later."
-            },
+            detail={"error": "email_failed", "message": "Failed to send OTP email."},
         )
 
     return {"status": "success", "message": "OTP sent to email. Please check your inbox."}
+
 
 # ------------------------------------------------------------------------
 # STEP 2: Complete registration by verifying OTP and setting password
@@ -140,42 +130,25 @@ def initiate_registration(
     summary="Complete registration: verify OTP and set password",
 )
 def complete_registration(
-    student_id: int = Body(..., embed=True),
-    otp: str = Body(..., embed=True, description="6-digit code sent via email"),
-    password: str = Body(..., embed=True, min_length=8, description="Password"),
-    confirm_password: str = Body(..., embed=True, min_length=8, description="Confirm password"),
+    data: RegistrationCompleteSchema,
     db: Session = Depends(get_db),
 ):
     """
     1) Find user by student_id and matching OTP in remember_token.
     2) Validate OTP and passwords match.
-    3) Hash password, clear OTP, set created_at/updated_at.
+    3) Hash password, clear OTP.
     4) Return user info.
     """
-    # 1) Lookup user
-    user = db.query(Users).filter_by(student_id=student_id, remember_token=otp).first()
+    user = db.query(Users).filter_by(student_id=data.student_id, remember_token=data.otp).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "invalid_otp", "message": "OTP is invalid or expired."},
         )
 
-    # 2) Validate passwords
-    if password != confirm_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "password_mismatch", "message": "Passwords do not match."},
-        )
-    if password.isalpha() or password.isdigit():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "weak_password", "message": "Password must contain letters and numbers."},
-        )
-
-    # 3) Hash and persist
-    hashed_pw = pwd_context.hash(password)
+    hashed_pw = pwd_context.hash(data.password)
     user.password = hashed_pw
-    user.remember_token = None             # clear OTP
+    user.remember_token = None
     db.add(user)
     db.commit()
     db.refresh(user)

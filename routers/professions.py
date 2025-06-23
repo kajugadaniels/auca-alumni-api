@@ -154,7 +154,7 @@ def get_profession(
 )
 def update_profession(
     profession_id: int,
-    data: CreateProfessionSchema = Body(...),
+    name: str = Form(..., description="New profession name"),
     db: Session = Depends(get_db),
 ):
     """
@@ -167,7 +167,11 @@ def update_profession(
             detail={"error": "not_found", "message": f"No profession found with ID {profession_id}."},
         )
 
-    new_name = data.name.strip()
+    # Validate and clean
+    data = CreateProfessionSchema(name=name)
+    new_name = data.name
+
+    # Prevent duplicate
     if (
         db.query(Professions)
         .filter(Professions.id != profession_id, Professions.name == new_name)
@@ -181,7 +185,9 @@ def update_profession(
     prof.name = new_name
     db.commit()
     db.refresh(prof)
-    return ProfessionSchema.from_attributes(prof)
+
+    # Return updated schema
+    return ProfessionSchema.model_validate(prof)
 
 @router.delete(
     "/{profession_id}/delete",

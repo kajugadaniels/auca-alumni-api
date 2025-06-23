@@ -255,3 +255,115 @@ def get_program_details(
         created_at=program.created_at,
         updated_at=program.updated_at,
     )
+
+# ------------------------------------------------------------------------
+# PUT /programs/{program_id}: update an existing program
+# ------------------------------------------------------------------------
+@router.put(
+    "/{program_id}",
+    response_model=ProgramSchema,
+    summary="Update an existing program by ID",
+)
+async def update_program(
+    program_id: int,
+    request: Request,
+    title: str = Form(..., min_length=5, description="Updated program title"),
+    description: str = Form(..., min_length=10, description="Updated program description"),
+    photo: Optional[UploadFile] = File(None, description="New image file (optional)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Update fields of a program:
+    - Validates title/description via CreateProgramSchema
+    - Prevents duplicate titles on other records
+    - Optionally replaces, renames, and crops the image to 1270×720
+    """
+    # 1) Fetch existing record
+    prog = db.query(Programs).get(program_id)
+    if not prog:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "program_not_found",
+                "message": f"No program found with ID {program_id}."
+            },
+        )
+
+    # 2) Validate metadata
+    data = CreateProgramSchema(title=title, description=description)
+
+    # 3) Prevent duplicate titles
+    dup = db.query(Programs).filter(
+        Programs.id != program_id,
+        Programs.title == data.title.strip()
+    ).first()
+    if dup:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "program_exists",
+                "message": f"Another program titled '{data.title}' already exists."
+            },
+        )
+
+    # 4) Apply updates
+    prog.title = data.title.strip()
+    prog.description = data.description.strip()
+
+    # 5) Handle new photo if provided
+    if photo:
+        # Remove old file
+        old_path = os.path.join(os.getcwd(), prog.photo.lstrip("/"))
+        if os.path.isfile(old_path):
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass  # log in production
+
+        # Build new filename
+        slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+        date_str = datetime.date.today().strftime("%Y%m%d")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{date_str}{ext}"
+        filepath = os.path.join(PROGRAMS_UPLOAD_DIR, filename)
+
+        # Save and crop
+        contents = await photo.read()
+        with open(filepath, "wb") as f:
+            f.write(contents)
+
+        try:
+            img = Image.open(filepath)
+            img = img.convert("RGB")
+            img = img.resize((1270, 720), Image.LANCZOS)
+            img.save(filepath, quality=85)
+        except Exception:
+            os.remove(filepath)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "invalid_image",
+                    "message": "Uploaded file is not a valid image."
+                },
+            )
+
+        prog.photo = f"/uploads/programs/{filename}"
+
+    # 6) Commit changes
+    db.add(prog)
+    db.commit()
+    db.refresh(prog)
+
+    # 7) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{prog.photo}"
+
+    # 8) Return updated record
+    return ProgramSchema(
+        id=prog.id,
+        title=prog.title,
+        description=prog.description,
+        photo=photo_url,
+        created_at=prog.created_at,
+        updated_at=prog.updated_at,
+    )

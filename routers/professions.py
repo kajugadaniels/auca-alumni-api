@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc, func
 from typing import Optional
+from fastapi.encoders import jsonable_encoder
 
 from database import get_db
 from models import Professions
@@ -101,7 +102,10 @@ def add_profession(
     if db.query(Professions).filter_by(name=name).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "profession_exists", "message": f"Profession '{name}' already exists."},
+            detail={
+                "error": "profession_exists",
+                "message": f"Profession '{name}' already exists."
+            },
         )
 
     new_prof = Professions(name=name)
@@ -109,13 +113,15 @@ def add_profession(
     db.commit()
     db.refresh(new_prof)
 
+    envelope = {
+        "status": "success",
+        "message": "Profession created successfully.",
+        "profession": ProfessionSchema.model_validate(new_prof)
+    }
+
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
-        content={
-            "status": "success",
-            "message": "Profession created successfully.",
-            "profession": ProfessionSchema.from_attributes(new_prof).model_dump(),
-        },
+        content=jsonable_encoder(envelope),
     )
 
 @router.get(

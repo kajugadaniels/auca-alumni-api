@@ -118,3 +118,23 @@ def add_profession(
         },
     )
 
+@router.get(
+    "/{profession_id}",
+    response_model=ProfessionSchema,
+    summary="Retrieve a single profession by ID",
+)
+def get_profession(
+    profession_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch a profession by its ID.
+    """
+    prof = db.query(Professions).get(profession_id)
+    if not prof:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "message": f"No profession found with ID {profession_id}."},
+        )
+    return ProfessionSchema.from_attributes(prof)
+

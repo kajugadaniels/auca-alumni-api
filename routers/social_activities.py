@@ -393,3 +393,50 @@ async def update_social_activity(
         created_at=activity.created_at,
         updated_at=activity.updated_at,
     )
+
+@router.delete(
+    "/{activity_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific social activity and its associated image",
+)
+def delete_social_activity(
+    activity_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the social activity record identified by `activity_id`.
+    Also removes the corresponding image file from disk.
+    Returns a success message, or 404 if not found.
+    """
+    # 1) Fetch the activity
+    activity = db.query(SocialActivities).get(activity_id)
+    if not activity:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "activity_not_found",
+                "message": f"No social activity found with ID {activity_id}."
+            },
+        )
+
+    # 2) Delete the image file
+    image_path = os.path.join(os.getcwd(), activity.photo.lstrip("/"))
+    if os.path.isfile(image_path):
+        try:
+            os.remove(image_path)
+        except Exception:
+            # In production, log this error
+            pass
+
+    # 3) Delete the database record
+    db.delete(activity)
+    db.commit()
+
+    # 4) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": f"Social activity with ID {activity_id} has been deleted successfully."
+        },
+    )

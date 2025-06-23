@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
-from routers import students, auth, countries, events, news, programs, social_activities, sliders
+from routers import students, auth, countries, events, news, programs, social_activities, sliders, professions
 
 # Auto-create tables (or manage migrations externally)
 Base.metadata.create_all(bind=engine)
@@ -79,4 +79,10 @@ app.include_router(
     sliders.router,
     prefix="/api",
     tags=["sliders"],
+)
+
+app.include_router(
+    professions.router,
+    prefix="/api",
+    tags=["professions"],
 )

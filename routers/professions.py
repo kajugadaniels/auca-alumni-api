@@ -10,6 +10,7 @@ from fastapi import (
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import asc, desc, func
+from typing import Optional
 
 from database import get_db
 from models import Professions

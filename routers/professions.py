@@ -92,27 +92,33 @@ def list_professions(
     summary="Create a new profession",
 )
 def add_profession(
-    data: CreateProfessionSchema = Body(...),
+    name: str = Form(..., description="Profession name"),
     db: Session = Depends(get_db),
 ):
     """
     Create a new profession. Prevents duplicates by name.
     """
-    name = data.name.strip()
-    if db.query(Professions).filter_by(name=name).first():
+    # 1) Validate input via Pydantic
+    data = CreateProfessionSchema(name=name)
+    clean_name = data.name
+
+    # 2) Duplicate check
+    if db.query(Professions).filter_by(name=clean_name).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "profession_exists",
-                "message": f"Profession '{name}' already exists."
+                "message": f"Profession '{clean_name}' already exists."
             },
         )
 
-    new_prof = Professions(name=name)
+    # 3) Persist
+    new_prof = Professions(name=clean_name)
     db.add(new_prof)
     db.commit()
     db.refresh(new_prof)
 
+    # 4) Build response
     envelope = {
         "status": "success",
         "message": "Profession created successfully.",

@@ -215,3 +215,43 @@ async def add_program(
             },
         },
     )
+
+# ------------------------------------------------------------------------
+# GET /programs/{program_id}: retrieve detailed information for a single program
+# ------------------------------------------------------------------------
+@router.get(
+    "/program/{program_id}",
+    response_model=ProgramSchema,
+    summary="Retrieve detailed information for a single program by ID",
+)
+def get_program_details(
+    program_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch a single program record by its ID.
+    Returns 404 if not found, otherwise full metadata with image URL.
+    """
+    program = db.query(Programs).get(program_id)
+    if not program:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "program_not_found",
+                "message": f"No program found with ID {program_id}."
+            },
+        )
+
+    # Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{program.photo}"
+
+    return ProgramSchema(
+        id=program.id,
+        title=program.title,
+        description=program.description,
+        photo=photo_url,
+        created_at=program.created_at,
+        updated_at=program.updated_at,
+    )

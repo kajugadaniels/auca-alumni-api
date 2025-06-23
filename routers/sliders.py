@@ -111,3 +111,90 @@ def list_sliders(
         prev_page=prev_page,
         items=items,
     )
+
+# ------------------------------------------------------------------------
+# POST /sliders/add: create a new slider with image upload and auto-crop
+# ------------------------------------------------------------------------
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new slider with image upload and auto-crop",
+)
+async def add_slider(
+    request: Request,
+    description: str = Form(..., description="Slider description"),
+    photo: UploadFile = File(..., description="Image file for the slider"),
+    db: Session = Depends(get_db),
+):
+    """
+    Creates a new slider:
+    - Validates via CreateSliderSchema
+    - Saves and crops image (1270×720) in‐memory
+    - Persists and returns full metadata
+    """
+    # 1) Validate metadata
+    data = CreateSliderSchema(description=description)
+
+    # 2) Build filename
+    slug = "".join(c for c in data.description.lower().replace(" ", "_") if c.isalnum() or c == "_")
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{timestamp}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # 3) Read & validate image in-memory
+    contents = await photo.read()
+    buffer = BytesIO(contents)
+    try:
+        img = Image.open(buffer)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+    except UnidentifiedImageError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_image",
+                "message": "Uploaded file is not a valid image."
+            },
+        )
+
+    # 4) Save the processed image to disk
+    try:
+        img.save(filepath, quality=85)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "save_failed",
+                "message": "Failed to save image on the server."
+            },
+        )
+
+    # 5) Persist record
+    new_slide = Sliders(
+        photo=f"/uploads/sliders/{filename}",
+        description=data.description,
+    )
+    db.add(new_slide)
+    db.commit()
+    db.refresh(new_slide)
+
+    # 6) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{new_slide.photo}"
+
+    # 7) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Slider created successfully.",
+            "slider": {
+                "id": new_slide.id,
+                "photo": photo_url,
+                "description": new_slide.description,
+                "created_at": new_slide.created_at.isoformat(),
+                "updated_at": new_slide.updated_at.isoformat(),
+            },
+        },
+    )

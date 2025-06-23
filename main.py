@@ -2,8 +2,8 @@ from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from routers import students, auth, countries, events, news, programs, social_activities
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
+from routers import students, auth, countries, events, news, programs, social_activities, sliders
 
 # Auto-create tables (or manage migrations externally)
 Base.metadata.create_all(bind=engine)
@@ -73,4 +73,10 @@ app.include_router(
     social_activities.router,
     prefix="/api",
     tags=["social-activities"],
+)
+
+app.include_router(
+    sliders.router,
+    prefix="/api",
+    tags=["sliders"],
 )

@@ -1,14 +1,17 @@
 import os
 import datetime
 from typing import Optional
+from PIL import Image
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
-    Query,
-    Request,
     status,
+    UploadFile,
+    File,
+    Form,
+    Request,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -16,11 +19,11 @@ from sqlalchemy import asc, desc, func
 
 from database import get_db
 from models import Programs
-from schemas.program import ProgramSchema, ProgramListResponse
+from schemas.program import CreateProgramSchema, ProgramSchema, ProgramListResponse
 from routers.auth import get_current_user
 
 router = APIRouter(
-    prefix="/programs",
+    # prefix="/programs",
     tags=["programs"],
     dependencies=[Depends(get_current_user)],
 )
@@ -34,7 +37,7 @@ os.makedirs(PROGRAMS_UPLOAD_DIR, exist_ok=True)
 # GET /programs: list all programs with pagination, search, sorting
 # ------------------------------------------------------------------------
 @router.get(
-    "/",
+    "/programs",
     response_model=ProgramListResponse,
     summary="Retrieve a paginated list of programs with metadata and image URLs",
 )
@@ -114,4 +117,98 @@ def list_programs(
         next_page=next_page,
         prev_page=prev_page,
         items=items,
+    )
+
+# ------------------------------------------------------------------------
+# POST /programs/add: create a new program with image upload and processing
+# ------------------------------------------------------------------------
+@router.post(
+    "/program/add/",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new program with image upload and auto-crop",
+)
+async def add_program(
+    request: Request,
+    title: str = Form(..., min_length=5, description="Program title"),
+    description: str = Form(..., min_length=10, description="Program description"),
+    photo: UploadFile = File(..., description="Image file for the program"),
+    db: Session = Depends(get_db),
+):
+    """
+    Creates a new program:
+    - Validates title and description
+    - Saves and crops image (1270×720)
+    - Persists record and returns full metadata
+    """
+    # 1) Validate metadata
+    data = CreateProgramSchema(title=title, description=description)
+
+    # 2) Prevent duplicate
+    if db.query(Programs).filter(Programs.title == data.title.strip()).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "program_exists",
+                "message": f"A program titled '{data.title}' already exists."
+            },
+        )
+
+    # 3) Build filename
+    slug = "".join(
+        c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_"
+    )
+    date_str = datetime.date.today().strftime("%Y%m%d")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{date_str}{ext}"
+    filepath = os.path.join(PROGRAMS_UPLOAD_DIR, filename)
+
+    # 4) Save and crop image
+    contents = await photo.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    try:
+        img = Image.open(filepath)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except Exception:
+        os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_image",
+                "message": "Uploaded file is not a valid image."
+            },
+        )
+
+    # 5) Persist record
+    new_prog = Programs(
+        title=data.title.strip(),
+        description=data.description.strip(),
+        photo=f"/uploads/programs/{filename}",
+    )
+    db.add(new_prog)
+    db.commit()
+    db.refresh(new_prog)
+
+    # 6) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{new_prog.photo}"
+
+    # 7) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Program created successfully.",
+            "program": {
+                "id": new_prog.id,
+                "title": new_prog.title,
+                "description": new_prog.description,
+                "photo": photo_url,
+                "created_at": new_prog.created_at.isoformat(),
+                "updated_at": new_prog.updated_at.isoformat(),
+            },
+        },
     )

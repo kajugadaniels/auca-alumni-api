@@ -138,3 +138,38 @@ def get_profession(
         )
     return ProfessionSchema.from_attributes(prof)
 
+@router.put(
+    "/{profession_id}/update",
+    response_model=ProfessionSchema,
+    summary="Update an existing profession by ID",
+)
+def update_profession(
+    profession_id: int,
+    data: CreateProfessionSchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Update the name of a profession, preventing duplicates.
+    """
+    prof = db.query(Professions).get(profession_id)
+    if not prof:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "message": f"No profession found with ID {profession_id}."},
+        )
+
+    new_name = data.name.strip()
+    if (
+        db.query(Professions)
+        .filter(Professions.id != profession_id, Professions.name == new_name)
+        .first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "profession_exists", "message": f"Another profession named '{new_name}' exists."},
+        )
+
+    prof.name = new_name
+    db.commit()
+    db.refresh(prof)
+    return ProfessionSchema.from_attributes(prof)

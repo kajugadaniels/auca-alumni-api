@@ -260,7 +260,7 @@ def get_program_details(
 # PUT /programs/{program_id}: update an existing program
 # ------------------------------------------------------------------------
 @router.put(
-    "/{program_id}",
+    "/program/{program_id}/update/",
     response_model=ProgramSchema,
     summary="Update an existing program by ID",
 )

@@ -11,8 +11,19 @@ class Certifications(Base):
     year = Column(Integer, nullable=False)
     type = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class Countries(Base):
@@ -22,8 +33,19 @@ class Countries(Base):
     name = Column(String(255), nullable=False)
     abbreviation = Column(String(255))
     currency = Column(String(255))
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
     code = Column(String(255))
 
 
@@ -33,8 +55,19 @@ class Departments(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     faculty_id = Column(BigInteger, nullable=False)
     name = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class ExecutiveComittes(Base):
@@ -44,8 +77,19 @@ class ExecutiveComittes(Base):
     photo = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
     position = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class Faculties(Base):
@@ -54,8 +98,19 @@ class Faculties(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class FailedJobs(Base):
@@ -122,8 +177,19 @@ class Opportunities(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     date = Column(Date, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
     user_id = Column(Integer)
     status = Column(String(255))
     link = Column(Text)
@@ -137,8 +203,19 @@ class OpportunityHistories(Base):
     user_id = Column(BigInteger, nullable=False)
     comment = Column(Text, nullable=False)
     status = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class PasswordResets(Base):
@@ -159,8 +236,19 @@ class PersonalAccessTokens(Base):
     token = Column(String(64), nullable=False)
     abilities = Column(Text)
     last_used_at = Column(DateTime)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class PersonalInformation(Base):
@@ -173,8 +261,19 @@ class PersonalInformation(Base):
     self_employed = Column(String(255))
     latest_education_level = Column(String(255))
     address = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
     profession_id = Column(Integer)
     user_id = Column(Integer)
     dob = Column(Date)
@@ -192,8 +291,19 @@ class Professions(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class Programs(Base):
@@ -227,8 +337,19 @@ class ProgramAttendances(Base):
     phone_number = Column(String(255), nullable=False)
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class Sliders(Base):
@@ -237,8 +358,19 @@ class Sliders(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     photo = Column(String(255))
     description = Column(Text)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class SocialActivities(Base):
@@ -249,8 +381,19 @@ class SocialActivities(Base):
     title = Column(String(255), nullable=False)
     description = Column(String(255), nullable=False)
     date = Column(Date, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class Students(Base):
@@ -260,8 +403,19 @@ class Students(Base):
     id_number = Column(Integer, nullable=False)
     first_name = Column(String(255), nullable=False)
     last_name = Column(String(255), nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class SubscribedUsers(Base):
@@ -271,8 +425,19 @@ class SubscribedUsers(Base):
     email = Column(String(255), nullable=False)
     token = Column(String(255))
     status = Column(String, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
 
 
 class UpComingEvents(Base):
@@ -285,14 +450,14 @@ class UpComingEvents(Base):
     created_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),        # Python‐side default
-        server_default=func.now()  # DB‐side default
+        default=func.now(),
+        server_default=func.now()
     )
     updated_at = Column(
         DateTime,
         nullable=False,
-        default=func.now(),        # Python‐side default
-        server_default=func.now(), # DB‐side default
+        default=func.now(),
+        server_default=func.now(),
         onupdate=func.now()
     )
 
@@ -305,8 +470,19 @@ class Users(Base):
     email_verified_at = Column(DateTime)
     password = Column(String(255), nullable=False)
     remember_token = Column(String(100))
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
     first_name = Column(String(255))
     last_name = Column(String(255))
     phone_number = Column(String(255))
@@ -323,8 +499,19 @@ class WorkExperiences(Base):
     employer = Column(String(255), nullable=False)
     job_title = Column(String(255), nullable=False)
     job_description = Column(Text, nullable=False)
-    created_at = Column(DateTime)
-    updated_at = Column(DateTime)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
     start_date = Column(Date, nullable=False)
     end_date = Column(String(255))
     user_id = Column(Integer)

@@ -9,6 +9,9 @@ from fastapi import (
     Query,
     Request,
     status,
+    Form,
+    File,
+    UploadFile,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -16,7 +19,7 @@ from sqlalchemy import asc, desc, func
 
 from database import get_db
 from models import SocialActivities
-from schemas.social_activities import SocialActivitySchema, SocialActivityListResponse
+from schemas.social_activities import CreateSocialActivitySchema, SocialActivitySchema, SocialActivityListResponse
 from routers.auth import get_current_user
 
 router = APIRouter(
@@ -115,4 +118,107 @@ def list_social_activities(
         next_page=next_page,
         prev_page=prev_page,
         items=items,
+    )
+
+# ------------------------------------------------------------------------
+# POST /social-activities/add: create a new social activity
+# ------------------------------------------------------------------------
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new social activity with image upload and auto-crop",
+)
+async def add_social_activity(
+    request: Request,
+    title: str = Form(..., description="Activity title"),
+    description: str = Form(..., description="Activity description"),
+    date: datetime.date = Form(..., description="Date of the activity"),
+    photo: UploadFile = File(..., description="Image file for the activity"),
+    db: Session = Depends(get_db),
+):
+    """
+    Creates a new social activity:
+    - Validates via CreateSocialActivitySchema
+    - Prevents duplicate title+date
+    - Saves and crops image (1270x720)
+    - Persists and returns full metadata
+    """
+    # 1) Validate metadata
+    data = CreateSocialActivitySchema(title=title, description=description, date=date)
+
+    # 2) Duplicate check
+    if (
+        db.query(SocialActivities)
+        .filter(
+            SocialActivities.title == data.title,
+            SocialActivities.date == data.date
+        )
+        .first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "activity_exists",
+                "message": f"An activity titled '{data.title}' on {data.date} already exists."
+            }
+        )
+
+    # 3) Build filename
+    slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+    date_str = data.date.strftime("%Y%m%d")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{date_str}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # 4) Save and crop image
+    contents = await photo.read()
+    with open(filepath, "wb") as f:
+        f.write(contents)
+
+    try:
+        img = Image.open(filepath)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except Exception:
+        os.remove(filepath)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_image",
+                "message": "Uploaded file is not a valid image."
+            }
+        )
+
+    # 5) Persist record
+    new_act = SocialActivities(
+        title=data.title,
+        description=data.description,
+        date=data.date,
+        photo=f"/uploads/social_activities/{filename}",
+    )
+    db.add(new_act)
+    db.commit()
+    db.refresh(new_act)
+
+    # 6) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{new_act.photo}"
+
+    # 7) Return success JSON
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Social activity created successfully.",
+            "activity": {
+                "id": new_act.id,
+                "title": new_act.title,
+                "description": new_act.description,
+                "date": str(new_act.date),
+                "photo": photo_url,
+                "created_at": new_act.created_at.isoformat(),
+                "updated_at": new_act.updated_at.isoformat(),
+            },
+        },
     )

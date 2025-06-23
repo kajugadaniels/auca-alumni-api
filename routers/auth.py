@@ -131,6 +131,71 @@ def initiate_registration(
 
     return {"status": "success", "message": "OTP sent to email. Please check your inbox."}
 
+# ------------------------------------------------------------------------
+# STEP 2: Complete registration by verifying OTP and setting password
+# ------------------------------------------------------------------------
+@router.post(
+    "/register/complete",
+    status_code=status.HTTP_201_CREATED,
+    summary="Complete registration: verify OTP and set password",
+)
+def complete_registration(
+    student_id: int = Body(..., embed=True),
+    otp: str = Body(..., embed=True, description="6-digit code sent via email"),
+    password: str = Body(..., embed=True, min_length=8, description="Password"),
+    confirm_password: str = Body(..., embed=True, min_length=8, description="Confirm password"),
+    db: Session = Depends(get_db),
+):
+    """
+    1) Find user by student_id and matching OTP in remember_token.
+    2) Validate OTP and passwords match.
+    3) Hash password, clear OTP, set created_at/updated_at.
+    4) Return user info.
+    """
+    # 1) Lookup user
+    user = db.query(Users).filter_by(student_id=student_id, remember_token=otp).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "invalid_otp", "message": "OTP is invalid or expired."},
+        )
+
+    # 2) Validate passwords
+    if password != confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "password_mismatch", "message": "Passwords do not match."},
+        )
+    if password.isalpha() or password.isdigit():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "weak_password", "message": "Password must contain letters and numbers."},
+        )
+
+    # 3) Hash and persist
+    hashed_pw = pwd_context.hash(password)
+    user.password = hashed_pw
+    user.remember_token = None             # clear OTP
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Registration complete. You can now log in.",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "student_id": user.student_id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "phone_number": user.phone_number,
+            },
+        },
+    )
+
 @router.post(
     "/register",
     response_model=UserResponseSchema,

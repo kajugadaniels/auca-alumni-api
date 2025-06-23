@@ -12,14 +12,18 @@ from fastapi import (
     File,
     Form,
     Request,
+    Query,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import asc, desc, func
 
 from database import get_db
 from models import Programs
-from schemas.program import CreateProgramSchema, ProgramSchema, ProgramListResponse
+from schemas.program import (
+    CreateProgramSchema,
+    ProgramSchema,
+    ProgramListResponse,
+)
 from routers.auth import get_current_user
 
 router = APIRouter(
@@ -28,10 +32,9 @@ router = APIRouter(
     dependencies=[Depends(get_current_user)],
 )
 
-# Ensure uploads directory exists (if storing program images here)
+# Directory for program uploads
 PROGRAMS_UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "programs")
 os.makedirs(PROGRAMS_UPLOAD_DIR, exist_ok=True)
-
 
 # ------------------------------------------------------------------------
 # GET /programs: list all programs with pagination, search, sorting

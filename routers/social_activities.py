@@ -272,3 +272,124 @@ def get_social_activity(
         created_at=activity.created_at,
         updated_at=activity.updated_at,
     )
+
+@router.put(
+    "/{activity_id}/update",
+    response_model=SocialActivitySchema,
+    summary="Update an existing social activity by ID",
+)
+async def update_social_activity(
+    activity_id: int,
+    request: Request,
+    title: str = Form(..., min_length=5, description="Updated activity title"),
+    description: str = Form(..., min_length=10, description="Updated activity description"),
+    date: datetime.date = Form(..., description="Updated date of the activity"),
+    photo: Optional[UploadFile] = File(None, description="New image file (optional)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Updates a social activity:
+    - Validates via CreateSocialActivitySchema
+    - Prevents duplicate title+date on other records
+    - Optionally replaces, renames, and crops the image to 1270×720 in‐memory
+    """
+    # 1) Fetch existing
+    activity = db.query(SocialActivities).get(activity_id)
+    if not activity:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "activity_not_found",
+                "message": f"No social activity found with ID {activity_id}."
+            },
+        )
+
+    # 2) Validate inputs
+    data = CreateSocialActivitySchema(title=title, description=description, date=date)
+
+    # 3) Prevent duplicate on other records
+    dup = (
+        db.query(SocialActivities)
+        .filter(
+            SocialActivities.id != activity_id,
+            SocialActivities.title == data.title,
+            SocialActivities.date == data.date,
+        )
+        .first()
+    )
+    if dup:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "activity_exists",
+                "message": f"Another activity titled '{data.title}' on {data.date} already exists."
+            },
+        )
+
+    # 4) Apply metadata updates
+    activity.title = data.title
+    activity.description = data.description
+    activity.date = data.date
+
+    # 5) Handle optional image replacement
+    if photo:
+        # 5a) Remove old file
+        old_path = os.path.join(os.getcwd(), activity.photo.lstrip("/"))
+        if os.path.isfile(old_path):
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass  # log in production
+
+        # 5b) Build new filename
+        slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+        date_str = date.strftime("%Y%m%d")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{date_str}{ext}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+
+        # 5c) Read & validate in-memory
+        contents = await photo.read()
+        buf = BytesIO(contents)
+        try:
+            img = Image.open(buf)
+            img = img.convert("RGB")
+            img = img.resize((1270, 720), Image.LANCZOS)
+        except UnidentifiedImageError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "error": "invalid_image",
+                    "message": "Uploaded file is not a valid image."
+                },
+            )
+
+        # 5d) Save to disk
+        try:
+            img.save(filepath, quality=85)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "save_failed", "message": "Failed to save image on server."},
+            )
+
+        activity.photo = f"/uploads/social_activities/{filename}"
+
+    # 6) Commit changes
+    db.add(activity)
+    db.commit()
+    db.refresh(activity)
+
+    # 7) Build full URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{activity.photo}"
+
+    return SocialActivitySchema(
+        id=activity.id,
+        photo=photo_url,
+        title=activity.title,
+        description=activity.description,
+        date=activity.date,
+        created_at=activity.created_at,
+        updated_at=activity.updated_at,
+    )

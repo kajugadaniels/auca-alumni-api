@@ -85,3 +85,36 @@ def list_professions(
         items=items,
     )
 
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new profession",
+)
+def add_profession(
+    data: CreateProfessionSchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Create a new profession. Prevents duplicates by name.
+    """
+    name = data.name.strip()
+    if db.query(Professions).filter_by(name=name).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "profession_exists", "message": f"Profession '{name}' already exists."},
+        )
+
+    new_prof = Professions(name=name)
+    db.add(new_prof)
+    db.commit()
+    db.refresh(new_prof)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Profession created successfully.",
+            "profession": ProfessionSchema.from_attributes(new_prof).model_dump(),
+        },
+    )
+

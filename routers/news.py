@@ -38,7 +38,7 @@ os.makedirs(NEWS_UPLOAD_DIR, exist_ok=True)
 # GET /news: list all news with pagination
 # ------------------------------------------------------------------------
 @router.get(
-    "/news",
+    "/news/",
     response_model=LatestNewsListResponse,
     summary="Retrieve a paginated list of latest news items with full metadata and image URLs",
 )
@@ -125,7 +125,7 @@ def getNews(
 # POST /news/add: create a new news item with image upload
 # ------------------------------------------------------------------------
 @router.post(
-    "/news/add",
+    "/news/add/",
     status_code=status.HTTP_201_CREATED,
     summary="Create a new latest news item with image upload and auto-crop",
 )

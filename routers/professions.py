@@ -173,3 +173,29 @@ def update_profession(
     db.commit()
     db.refresh(prof)
     return ProfessionSchema.from_attributes(prof)
+
+@router.delete(
+    "/{profession_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a profession by ID",
+)
+def delete_profession(
+    profession_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the profession record identified by `profession_id`.
+    """
+    prof = db.query(Professions).get(profession_id)
+    if not prof:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "not_found", "message": f"No profession found with ID {profession_id}."},
+        )
+
+    db.delete(prof)
+    db.commit()
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "success", "message": f"Profession ID {profession_id} deleted successfully."},
+    )

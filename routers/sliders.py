@@ -198,3 +198,97 @@ async def add_slider(
             },
         },
     )
+
+# ------------------------------------------------------------------------
+# PUT /sliders/{slider_id}/update: update an existing slider by ID
+# ------------------------------------------------------------------------
+@router.put(
+    "/{slider_id}/update",
+    response_model=SliderSchema,
+    summary="Update an existing slider by ID",
+)
+async def update_slider(
+    slider_id: int,
+    request: Request,
+    description: str = Form(..., description="Updated slider description"),
+    photo: Optional[UploadFile] = File(None, description="New image file (optional)"),
+    db: Session = Depends(get_db),
+):
+    """
+    Updates a slider:
+    - Validates via CreateSliderSchema
+    - Optionally replaces and crops image in-memory
+    - Returns updated record with full image URL
+    """
+    # 1) Fetch existing
+    slide = db.query(Sliders).get(slider_id)
+    if not slide:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "slider_not_found", "message": f"No slider found with ID {slider_id}."},
+        )
+
+    # 2) Validate description
+    data = CreateSliderSchema(description=description)
+
+    # 3) Update description
+    slide.description = data.description
+
+    # 4) Handle optional image replacement
+    if photo:
+        # a) Remove old file
+        old_path = os.path.join(os.getcwd(), slide.photo.lstrip("/"))
+        if os.path.isfile(old_path):
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass
+
+        # b) Build new filename
+        slug = "".join(c for c in data.description.lower().replace(" ", "_") if c.isalnum() or c == "_")
+        timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{timestamp}{ext}"
+        filepath = os.path.join(UPLOAD_DIR, filename)
+
+        # c) Read & validate in-memory
+        contents = await photo.read()
+        buffer = BytesIO(contents)
+        try:
+            img = Image.open(buffer)
+            img = img.convert("RGB")
+            img = img.resize((1270, 720), Image.LANCZOS)
+        except UnidentifiedImageError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "invalid_image", "message": "Uploaded file is not a valid image."},
+            )
+
+        # d) Save to disk
+        try:
+            img.save(filepath, quality=85)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "save_failed", "message": "Failed to save image on server."},
+            )
+
+        slide.photo = f"/uploads/sliders/{filename}"
+
+    # 5) Commit changes
+    db.add(slide)
+    db.commit()
+    db.refresh(slide)
+
+    # 6) Build full photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{slide.photo}"
+
+    # 7) Return updated record
+    return SliderSchema(
+        id=slide.id,
+        photo=photo_url,
+        description=slide.description,
+        created_at=slide.created_at,
+        updated_at=slide.updated_at,
+    )

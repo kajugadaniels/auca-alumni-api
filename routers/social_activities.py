@@ -1,20 +1,22 @@
 import os
 import datetime
+from io import BytesIO
 from typing import Optional
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    status,
+    UploadFile,
+    File,
+    Form,
     Query,
     Request,
-    status,
-    Form,
-    File,
-    UploadFile,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy import asc, desc, func
 
 from database import get_db
@@ -140,7 +142,7 @@ async def add_social_activity(
     Creates a new social activity:
     - Validates via CreateSocialActivitySchema
     - Prevents duplicate title+date
-    - Saves and crops image (1270x720)
+    - Validates and crops image (1270×720) in‐memory
     - Persists and returns full metadata
     """
     # 1) Validate metadata
@@ -151,7 +153,7 @@ async def add_social_activity(
         db.query(SocialActivities)
         .filter(
             SocialActivities.title == data.title,
-            SocialActivities.date == data.date
+            SocialActivities.date == data.date,
         )
         .first()
     ):
@@ -160,7 +162,7 @@ async def add_social_activity(
             detail={
                 "error": "activity_exists",
                 "message": f"An activity titled '{data.title}' on {data.date} already exists."
-            }
+            },
         )
 
     # 3) Build filename
@@ -170,27 +172,35 @@ async def add_social_activity(
     filename = f"{slug}_{date_str}{ext}"
     filepath = os.path.join(UPLOAD_DIR, filename)
 
-    # 4) Save and crop image
+    # 4) Read & validate image in-memory
     contents = await photo.read()
-    with open(filepath, "wb") as f:
-        f.write(contents)
-
+    buffer = BytesIO(contents)
     try:
-        img = Image.open(filepath)
+        img = Image.open(buffer)
         img = img.convert("RGB")
         img = img.resize((1270, 720), Image.LANCZOS)
-        img.save(filepath, quality=85)
-    except Exception:
-        os.remove(filepath)
+    except UnidentifiedImageError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={
                 "error": "invalid_image",
                 "message": "Uploaded file is not a valid image."
-            }
+            },
         )
 
-    # 5) Persist record
+    # 5) Save the processed image to disk
+    try:
+        img.save(filepath, quality=85)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "save_failed",
+                "message": "Failed to save image on the server."
+            },
+        )
+
+    # 6) Persist record
     new_act = SocialActivities(
         title=data.title,
         description=data.description,
@@ -201,11 +211,11 @@ async def add_social_activity(
     db.commit()
     db.refresh(new_act)
 
-    # 6) Build full photo URL
+    # 7) Build full photo URL
     base = str(request.base_url).rstrip("/")
     photo_url = f"{base}{new_act.photo}"
 
-    # 7) Return success JSON
+    # 8) Return success JSON
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={

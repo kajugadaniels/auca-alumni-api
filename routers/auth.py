@@ -49,6 +49,88 @@ def send_otp_email(recipient: str, otp: str):
         server.login(EMAIL_USER, EMAIL_PASS)
         server.send_message(msg)
 
+# ------------------------------------------------------------------------
+# STEP 1: Initiate registration by sending OTP
+# ------------------------------------------------------------------------
+@router.post(
+    "/register/initiate",
+    status_code=status.HTTP_200_OK,
+    summary="Initiate registration: verify student and send OTP to email",
+)
+def initiate_registration(
+    data: UserRegisterSchema = Body(
+        ...,
+        example={
+            "email": "student@example.com",
+            "student_id": 123,
+            "phone_number": "+250788123456"
+        },
+    ),
+    db: Session = Depends(get_db),
+):
+    """
+    1) Verify student exists.
+    2) Prevent duplicate user for same student or email.
+    3) Generate 6-digit OTP, store in remember_token.
+    4) Email OTP to the user.
+    """
+    # 1) Verify student exists
+    student = db.query(Students).filter_by(id=data.student_id).first()
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "invalid_student_id",
+                "message": f"No student found with ID {data.student_id}."
+            },
+        )
+
+    # 2) Prevent duplicate
+    existing = (
+        db.query(Users)
+        .filter((Users.email == data.email) | (Users.student_id == data.student_id))
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "already_registered",
+                "message": "A user with this student ID or email already exists."
+            },
+        )
+
+    # 3) Create placeholder user with OTP in remember_token
+    otp = f"{random.randint(0, 999999):06d}"
+    new_user = Users(
+        email=data.email,
+        password="",                      # will set later
+        student_id=data.student_id,
+        phone_number=data.phone_number,
+        first_name=student.first_name,
+        last_name=student.last_name,
+        remember_token=otp,               # store OTP here
+    )
+    db.add(new_user)
+    db.commit()
+
+    # 4) Send the OTP email
+    try:
+        send_otp_email(data.email, otp)
+    except Exception as e:
+        # Roll back user creation on email failure
+        db.delete(new_user)
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "email_failed",
+                "message": "Failed to send OTP email. Please try again later."
+            },
+        )
+
+    return {"status": "success", "message": "OTP sent to email. Please check your inbox."}
+
 @router.post(
     "/register",
     response_model=UserResponseSchema,

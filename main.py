@@ -72,5 +72,5 @@ app.include_router(
 app.include_router(
     social_activities.router,
     prefix="/api",
-    tags=["social_activities"],
+    tags=["social-activities"],
 )

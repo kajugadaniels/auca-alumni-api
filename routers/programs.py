@@ -372,7 +372,7 @@ async def update_program(
 # DELETE /programs/{program_id}: delete a program and its image
 # ------------------------------------------------------------------------
 @router.delete(
-    "/{program_id}",
+    "/program/{program_id}/delete/",
     status_code=status.HTTP_200_OK,
     summary="Delete a specific program and its associated image",
 )

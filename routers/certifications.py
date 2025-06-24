@@ -1,0 +1,111 @@
+import os
+from io import BytesIO
+import datetime
+from typing import Optional
+
+from fastapi import (
+    APIRouter, Depends, HTTPException,
+    Query, Request, Form, File, UploadFile, status
+)
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import asc, desc, func
+from PIL import Image, UnidentifiedImageError
+
+from database import get_db
+from models import Certifications, Users
+from schemas.certification import (
+    CreateCertificationSchema,
+    CertificationSchema,
+    CertificationListResponse,
+    UserNestedSchema,
+)
+from routers.auth import get_current_user
+
+router = APIRouter(
+    prefix="/certifications",
+    tags=["certifications"],
+    dependencies=[Depends(get_current_user)],
+)
+
+# Ensure upload directory
+UPLOAD_DIR = os.path.join(os.getcwd(), "uploads", "certifications")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@router.get(
+    "/",
+    response_model=CertificationListResponse,
+    summary="List certifications with pagination, search, and sorting",
+)
+def list_certifications(
+    request: Request,
+    *,
+    db: Session = Depends(get_db),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    search: Optional[str] = Query(None, description="Filter by certificate name or type"),
+    sort_by: str = Query(
+        "created_at",
+        regex="^(id|year|created_at)$",
+        description="Field to sort by"
+    ),
+    order: str = Query("desc", regex="^(asc|desc)$", description="Sort direction"),
+) -> CertificationListResponse:
+    # 1) Total count
+    total = db.query(func.count(Certifications.id)).scalar()
+
+    # 2) Base query + optional search
+    q = db.query(Certifications)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.filter(
+            Certifications.certificate_name.ilike(term)
+            | Certifications.type.ilike(term)
+        )
+
+    # 3) Ordering
+    direction = asc if order == "asc" else desc
+    q = q.order_by(direction(getattr(Certifications, sort_by)))
+
+    # 4) Pagination
+    offset = (page - 1) * page_size
+    raw = q.offset(offset).limit(page_size).all()
+    if not raw and page != 1:
+        raise HTTPException(status_code=404, detail="Page out of range")
+
+    # 5) Build items with nested user and full image URL
+    base = str(request.base_url).rstrip("/")
+    items = []
+    for cert in raw:
+        user = db.query(Users).get(cert.user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail={"error": "user_not_found", "message": f"User {cert.user_id} not found"},
+            )
+        items.append(
+            CertificationSchema(
+                id=cert.id,
+                user=UserNestedSchema.model_validate(user),
+                certificate_name=cert.certificate_name,
+                year=cert.year,
+                type=cert.type,
+                description=cert.description,
+                image=f"{base}{cert.image}",
+                created_at=cert.created_at,
+                updated_at=cert.updated_at,
+            )
+        )
+
+    def make_url(p: int) -> str:
+        return str(request.url.include_query_params(page=p, page_size=page_size))
+
+    return CertificationListResponse(
+        total=total,
+        page=page,
+        page_size=page_size,
+        next_page=make_url(page+1) if offset + len(items) < total else None,
+        prev_page=make_url(page-1) if page > 1 else None,
+        items=items,
+    )
+

@@ -200,24 +200,28 @@ def get_history(
 @router.put(
     "/{history_id}/update",
     response_model=OpportunityHistorySchema,
-    summary="Update an existing opportunity history by ID",
+    summary="Update an existing opportunity history by ID with nested info",
 )
 def update_history(
     history_id: int,
     data: CreateHistorySchema = Body(...),
     db: Session = Depends(get_db),
 ):
+    """
+    1) Validate existence of history, user, and opportunity.
+    2) Apply updates, then return nested user & opportunity.
+    """
     hist = db.query(OpportunityHistories).get(history_id)
     if not hist:
         raise HTTPException(status_code=404, detail="History not found")
 
-    # FK checks
-    if not db.query(Users).get(data.user_id):
+    usr = db.query(Users).get(data.user_id)
+    opp = db.query(Opportunities).get(data.opportunity_id)
+    if not usr:
         raise HTTPException(status_code=400, detail="Invalid user_id")
-    if not db.query(Opportunities).get(data.opportunity_id):
+    if not opp:
         raise HTTPException(status_code=400, detail="Invalid opportunity_id")
 
-    # Apply updates
     hist.opportunity_id = data.opportunity_id
     hist.user_id = data.user_id
     hist.comment = data.comment
@@ -225,13 +229,12 @@ def update_history(
     db.commit()
     db.refresh(hist)
 
-    # Build nested user info
-    usr = db.query(Users).get(hist.user_id)
     user_info = UserInfoSchema.model_validate(usr)
+    opp_info  = OpportunityInfoSchema.model_validate(opp)
 
     return OpportunityHistorySchema(
         id=hist.id,
-        opportunity_id=hist.opportunity_id,
+        opportunity=opp_info,
         user=user_info,
         comment=hist.comment,
         status=hist.status,

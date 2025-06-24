@@ -186,19 +186,26 @@ def get_history(
 )
 def update_history(
     hist_id: int,
-    comment: str = Form(..., min_length=5, description="Updated comment"),
-    status: str = Form(..., description="Updated status"),
+    comment: str = Body(..., embed=True, min_length=5, description="Updated comment"),
+    status: str = Body(..., embed=True, description="Updated status"),
     db: Session = Depends(get_db),
 ):
+    """
+    1) Fetch and verify the history entry exists.
+    2) Update its comment and status from JSON body.
+    3) Commit and return the updated record with nested user & opportunity.
+    """
     h = db.query(OpportunityHistories).get(hist_id)
     if not h:
         raise HTTPException(status_code=404, detail="History entry not found")
 
+    # 2) Apply updates
     h.comment = comment
     h.status = status
     db.commit()
     db.refresh(h)
 
+    # 3) Nested user & opportunity
     user = db.query(Users).get(h.user_id)
     opp = db.query(Opportunities).get(h.opportunity_id)
     return OpportunityHistorySchema(

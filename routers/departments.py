@@ -85,3 +85,50 @@ def list_departments(
         prev_page=make_url(page-1) if page > 1 else None,
         items=items,
     )
+
+@router.post(
+    "/add",
+    response_model=DepartmentSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new department",
+)
+def add_department(
+    data: CreateDepartmentSchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate faculty exists
+    faculty = db.query(Faculties).get(data.faculty_id)
+    if not faculty:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "faculty_not_found", "message": f"No faculty with ID {data.faculty_id}"}
+        )
+
+    # 2) Prevent duplicate name under same faculty
+    if (
+        db.query(Departments)
+        .filter_by(faculty_id=data.faculty_id, name=data.name.strip())
+        .first()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "duplicate_department", "message": "Department already exists under this faculty"}
+        )
+
+    # 3) Persist
+    dept = Departments(
+        faculty_id=data.faculty_id,
+        name=data.name.strip(),
+    )
+    db.add(dept)
+    db.commit()
+    db.refresh(dept)
+
+    return DepartmentSchema(
+        id=dept.id,
+        faculty=FacultyNestedSchema.model_validate(faculty),
+        name=dept.name,
+        created_at=dept.created_at,
+        updated_at=dept.updated_at,
+    )
+

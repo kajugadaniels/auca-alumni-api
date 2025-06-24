@@ -113,3 +113,68 @@ def list_work_experiences(
         prev_page=prev_page,
         items=items,
     )
+
+# ------------------------------------------------------------------------
+# POST /work-experiences/add: create new work experience
+# ------------------------------------------------------------------------
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new work experience entry",
+)
+def add_work_experience(
+    data: CreateWorkExperienceSchema,
+    db: Session = Depends(get_db),
+):
+    # 1) Verify user exists
+    user = db.query(Users).get(data.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_user", "message": f"No user found with ID {data.user_id}."}
+        )
+
+    # 2) Prevent exact duplicate (company + user + start_date)
+    existing = (
+        db.query(WorkExperiences)
+        .filter_by(
+            company=data.company.strip(),
+            user_id=data.user_id,
+            start_date=data.start_date
+        )
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "experience_exists", "message": "This work experience already exists."}
+        )
+
+    # 3) Create and persist
+    new_exp = WorkExperiences(
+        company=data.company.strip(),
+        employer=data.employer.strip(),
+        job_title=data.job_title.strip(),
+        job_description=data.job_description.strip(),
+        start_date=data.start_date,
+        end_date=data.end_date,
+        user_id=data.user_id,
+    )
+    db.add(new_exp)
+    db.commit()
+    db.refresh(new_exp)
+
+    # 4) Return with nested user
+    return WorkExperienceSchema(
+        id=new_exp.id,
+        company=new_exp.company,
+        employer=new_exp.employer,
+        job_title=new_exp.job_title,
+        job_description=new_exp.job_description,
+        start_date=new_exp.start_date,
+        end_date=new_exp.end_date,
+        created_at=new_exp.created_at,
+        updated_at=new_exp.updated_at,
+        user=user,
+    )
+

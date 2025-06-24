@@ -150,3 +150,26 @@ async def add_committee_member(
             "photo": f"{base}{member.photo}"
         }
     )
+
+@router.get(
+    "/{member_id}",
+    response_model=ExecutiveCommitteeSchema,
+    summary="Get detailed executive committee member by ID",
+)
+def get_committee_member(
+    member_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    member = db.query(ExecutiveComittes).get(member_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    base = str(request.base_url).rstrip("/")
+    return ExecutiveCommitteeSchema(
+        **{
+            **member.__dict__,
+            "photo": f"{base}{member.photo}"
+        }
+    )
+

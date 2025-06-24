@@ -135,3 +135,30 @@ def add_history(
             ).model_dump(),
         },
     )
+
+@router.get(
+    "/{history_id}",
+    response_model=OpportunityHistorySchema,
+    summary="Retrieve detailed opportunity history by ID",
+)
+def get_history(
+    history_id: int,
+    db: Session = Depends(get_db),
+):
+    hist = db.query(OpportunityHistories).get(history_id)
+    if not hist:
+        raise HTTPException(status_code=404, detail="History not found")
+
+    user = db.query(Users).get(hist.user_id)
+    if not user:
+        raise HTTPException(status_code=500, detail="User data missing")
+
+    return OpportunityHistorySchema(
+        id=hist.id,
+        opportunity_id=hist.opportunity_id,
+        user=UserInfoSchema.from_attributes(user),
+        comment=hist.comment,
+        status=hist.status,
+        created_at=hist.created_at,
+        updated_at=hist.updated_at,
+    )

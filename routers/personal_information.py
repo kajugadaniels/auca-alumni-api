@@ -237,3 +237,117 @@ async def add_personal_information(
         },
     )
 
+# ------------------------------------------------------------------------
+# PUT /personal-information/{id}/update: update a personal info record
+# ------------------------------------------------------------------------
+@router.put(
+    "/{pi_id}/update",
+    response_model=PersonalInformationSchema,
+    summary="Update an existing personal information record",
+)
+async def update_personal_information(
+    pi_id: int,
+    request: Request,
+    bio: str = Form(...),
+    current_employer: Optional[str] = Form(None),
+    self_employed: Optional[str] = Form(None),
+    latest_education_level: Optional[str] = Form(None),
+    address: str = Form(...),
+    profession_id: Optional[int] = Form(None),
+    user_id: int = Form(...),
+    dob: Optional[datetime.date] = Form(None),
+    start_date: Optional[datetime.date] = Form(None),
+    end_date: Optional[datetime.date] = Form(None),
+    faculty_id: Optional[int] = Form(None),
+    country_id: Optional[str] = Form(None),
+    department: Optional[str] = Form(None),
+    gender: bool = Form(...),
+    status: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    # 1) Fetch existing
+    pi = db.query(PersonalInformation).get(pi_id)
+    if not pi:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile not found")
+
+    # 2) Validate
+    data = CreatePersonalInformationSchema(
+        bio=bio,
+        current_employer=current_employer,
+        self_employed=self_employed,
+        latest_education_level=latest_education_level,
+        address=address,
+        profession_id=profession_id,
+        user_id=user_id,
+        dob=dob,
+        start_date=start_date,
+        end_date=end_date,
+        faculty_id=faculty_id,
+        country_id=country_id,
+        department=department,
+        gender=gender,
+        status=status,
+    )
+
+    # 3) Verify user exists
+    user = db.query(Users).get(data.user_id)
+    if not user:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid user_id")
+
+    # 4) Update fields
+    for field in ["bio","current_employer","self_employed","latest_education_level",
+                  "address","profession_id","user_id","dob","start_date","end_date",
+                  "faculty_id","country_id","department","gender","status"]:
+        setattr(pi, field, getattr(data, field))
+
+    # 5) Optional photo replacement
+    if photo:
+        # remove old
+        old = os.path.join(os.getcwd(), pi.photo.lstrip("/"))
+        if os.path.isfile(old): os.remove(old)
+
+        contents = await photo.read()
+        buf = BytesIO(contents)
+        try:
+            img = Image.open(buf)
+            img = img.convert("RGB")
+            img = img.resize((1270,720), Image.LANCZOS)
+        except UnidentifiedImageError:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid image")
+
+        slug = f"user_{data.user_id}_{pi_id}_{int(datetime.datetime.utcnow().timestamp())}"
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        fn = f"{slug}{ext}"
+        path = os.path.join(UPLOAD_DIR, fn)
+        img.save(path, quality=85)
+        pi.photo = f"/uploads/personal_information/{fn}"
+
+    # 6) Commit
+    db.add(pi)
+    db.commit()
+    db.refresh(pi)
+
+    base = str(request.base_url).rstrip("/")
+    return PersonalInformationSchema(
+        id=pi.id,
+        photo=f"{base}{pi.photo}",
+        bio=pi.bio,
+        current_employer=pi.current_employer,
+        self_employed=pi.self_employed,
+        latest_education_level=pi.latest_education_level,
+        address=pi.address,
+        profession_id=pi.profession_id,
+        user=user,
+        dob=pi.dob,
+        start_date=pi.start_date,
+        end_date=pi.end_date,
+        faculty_id=pi.faculty_id,
+        country_id=pi.country_id,
+        department=pi.department,
+        gender=pi.gender,
+        status=pi.status,
+        created_at=pi.created_at,
+        updated_at=pi.updated_at,
+    )
+

@@ -132,3 +132,27 @@ def add_department(
         updated_at=dept.updated_at,
     )
 
+@router.get(
+    "/{dept_id}",
+    response_model=DepartmentSchema,
+    summary="Get a single department by ID",
+)
+def get_department(
+    dept_id: int,
+    db: Session = Depends(get_db),
+):
+    dept = db.query(Departments).get(dept_id)
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    faculty = db.query(Faculties).get(dept.faculty_id)
+    if not faculty:
+        raise HTTPException(status_code=404, detail="Faculty not found")
+
+    return DepartmentSchema(
+        id=dept.id,
+        faculty=FacultyNestedSchema.model_validate(faculty),
+        name=dept.name,
+        created_at=dept.created_at,
+        updated_at=dept.updated_at,
+    )
+

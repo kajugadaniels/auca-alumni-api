@@ -217,3 +217,87 @@ def get_certification(
         updated_at=cert.updated_at,
     )
 
+@router.put(
+    "/{cert_id}/update",
+    response_model=CertificationSchema,
+    summary="Update an existing certification by ID",
+)
+async def update_certification(
+    cert_id: int,
+    request: Request,
+    user_id: int = Form(...),
+    certificate_name: str = Form(...),
+    year: int = Form(...),
+    type: str = Form(...),
+    description: str = Form(...),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    cert = db.query(Certifications).get(cert_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certification not found")
+
+    # 1) Validate payload
+    schema = CreateCertificationSchema(
+        user_id=user_id,
+        certificate_name=certificate_name,
+        year=year,
+        type=type,
+        description=description,
+        image=(await image.read()) if image else b""
+    )
+
+    # 2) Verify user
+    user = db.query(Users).get(schema.user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    # 3) Prevent duplicate on other record
+    dup = db.query(Certifications).filter(
+        Certifications.id != cert_id,
+        Certifications.user_id == schema.user_id,
+        Certifications.certificate_name == schema.certificate_name,
+        Certifications.year == schema.year
+    ).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Duplicate certification")
+
+    cert.user_id = schema.user_id
+    cert.certificate_name = schema.certificate_name
+    cert.year = schema.year
+    cert.type = schema.type
+    cert.description = schema.description
+
+    # 4) Optional image replacement
+    if image:
+        old = os.path.join(os.getcwd(), cert.image.lstrip("/"))
+        if os.path.isfile(old):
+            os.remove(old)
+        ext = os.path.splitext(image.filename)[1] or ".jpg"
+        slug = "_".join(schema.certificate_name.lower().split())
+        filename = f"{slug}_{schema.year}{ext}"
+        fp = os.path.join(UPLOAD_DIR, filename)
+        buf = BytesIO(schema.image)
+        try:
+            img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+            img.save(fp, quality=85)
+        except UnidentifiedImageError:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+        cert.image = f"/uploads/certifications/{filename}"
+
+    db.commit()
+    db.refresh(cert)
+
+    base = str(request.base_url).rstrip("/")
+    return CertificationSchema(
+        id=cert.id,
+        user=UserNestedSchema.model_validate(user),
+        certificate_name=cert.certificate_name,
+        year=cert.year,
+        type=cert.type,
+        description=cert.description,
+        image=f"{base}{cert.image}",
+        created_at=cert.created_at,
+        updated_at=cert.updated_at,
+    )
+

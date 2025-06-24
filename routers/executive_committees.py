@@ -173,3 +173,69 @@ def get_committee_member(
         }
     )
 
+@router.put(
+    "/{member_id}/update",
+    response_model=ExecutiveCommitteeSchema,
+    summary="Update an executive committee member by ID",
+)
+async def update_committee_member(
+    member_id: int,
+    request: Request,
+    name: str = Form(..., description="Updated full name"),
+    position: str = Form(..., description="Updated position/title"),
+    photo: Optional[UploadFile] = File(None, description="New photo (optional)"),
+    db: Session = Depends(get_db),
+):
+    member = db.query(ExecutiveComittes).get(member_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # 1) Validate new values
+    schema = CreateExecutiveCommitteeSchema(
+        name=name,
+        position=position,
+        photo=(await photo.read()) if photo else b"",
+    )
+
+    # 2) Duplicate check
+    dup = db.query(ExecutiveComittes).filter(
+        ExecutiveComittes.id != member_id,
+        ExecutiveComittes.name == schema.name,
+        ExecutiveComittes.position == schema.position
+    ).first()
+    if dup:
+        raise HTTPException(status_code=400, detail="Another member with same name & position exists")
+
+    member.name = schema.name
+    member.position = schema.position
+
+    # 3) Optional photo replace
+    if photo:
+        old = os.path.join(os.getcwd(), member.photo.lstrip("/"))
+        if os.path.isfile(old):
+            os.remove(old)
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        slug = "_".join(schema.name.lower().split())
+        filename = f"{slug}{ext}"
+        fp = os.path.join(UPLOAD_DIR, filename)
+
+        buf = BytesIO(schema.photo)
+        try:
+            img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+            img.save(fp, quality=85)
+        except UnidentifiedImageError:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+
+        member.photo = f"/uploads/executive_committees/{filename}"
+
+    db.commit()
+    db.refresh(member)
+
+    base = str(request.base_url).rstrip("/")
+    return ExecutiveCommitteeSchema(
+        **{
+            **member.__dict__,
+            "photo": f"{base}{member.photo}"
+        }
+    )
+

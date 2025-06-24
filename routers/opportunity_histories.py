@@ -159,3 +159,26 @@ def add_history(
         }
     )
 
+@router.get(
+    "/{hist_id}",
+    response_model=OpportunityHistorySchema,
+    summary="Retrieve a single history entry by ID",
+)
+def get_history(
+    hist_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    h = db.query(OpportunityHistories).get(hist_id)
+    if not h:
+        raise HTTPException(status_code=404, detail="History entry not found")
+
+    user = db.query(Users).get(h.user_id)
+    opp = db.query(Opportunities).get(h.opportunity_id)
+    return OpportunityHistorySchema(
+        **{
+            **h.__dict__,
+            "user": OpportunityUserSchema.model_validate(user),
+            "opportunity": OpportunitySummarySchema.model_validate(opp),
+        }
+    )

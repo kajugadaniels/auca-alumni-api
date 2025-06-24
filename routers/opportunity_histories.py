@@ -201,6 +201,7 @@ def update_history(
     if not db.query(Opportunities).get(data.opportunity_id):
         raise HTTPException(status_code=400, detail="Invalid opportunity_id")
 
+    # Apply updates
     hist.opportunity_id = data.opportunity_id
     hist.user_id = data.user_id
     hist.comment = data.comment
@@ -208,11 +209,14 @@ def update_history(
     db.commit()
     db.refresh(hist)
 
-    user = db.query(Users).get(hist.user_id)
+    # Build nested user info
+    usr = db.query(Users).get(hist.user_id)
+    user_info = UserInfoSchema.model_validate(usr)
+
     return OpportunityHistorySchema(
         id=hist.id,
         opportunity_id=hist.opportunity_id,
-        user=UserInfoSchema.from_attributes(user),
+        user=user_info,
         comment=hist.comment,
         status=hist.status,
         created_at=hist.created_at,

@@ -33,8 +33,8 @@ def list_histories(
     db: Session = Depends(get_db),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
-    opportunity_id: Optional[int] = Query(None, description="Filter by opportunity_id"),
-    user_id: Optional[int] = Query(None, description="Filter by user_id"),
+    opportunity_id: int | None = Query(None, description="Filter by opportunity_id"),
+    user_id: int | None = Query(None, description="Filter by user_id"),
     sort_by: str = Query(
         "created_at",
         regex="^(id|created_at|updated_at)$",
@@ -42,7 +42,7 @@ def list_histories(
     ),
     order: str = Query("desc", regex="^(asc|desc)$", description="Sort direction"),
 ) -> OpportunityHistoryListResponse:
-    # 1) Count
+    # 1) Build base query and count
     query = db.query(OpportunityHistories)
     if opportunity_id:
         query = query.filter(OpportunityHistories.opportunity_id == opportunity_id)
@@ -54,21 +54,30 @@ def list_histories(
     # 2) Sort & paginate
     direction = asc if order == "asc" else desc
     column = getattr(OpportunityHistories, sort_by)
-    items_q = query.order_by(direction(column)).offset((page - 1) * page_size).limit(page_size).all()
-    if not items_q and page != 1:
+    raw = (
+        query
+        .order_by(direction(column))
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    if not raw and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
     # 3) Build response items
-    results = []
-    for hist in items_q:
-        user = db.query(Users).get(hist.user_id)
-        if not user:
-            raise HTTPException(status_code=500, detail="User data missing")
-        results.append(
+    items = []
+    for hist in raw:
+        usr = db.query(Users).get(hist.user_id)
+        if not usr:
+            raise HTTPException(status_code=500, detail="User referenced not found")
+        # ← here we switch to model_validate
+        user_info = UserInfoSchema.model_validate(usr)
+
+        items.append(
             OpportunityHistorySchema(
                 id=hist.id,
                 opportunity_id=hist.opportunity_id,
-                user=UserInfoSchema.from_attributes(user),
+                user=user_info,
                 comment=hist.comment,
                 status=hist.status,
                 created_at=hist.created_at,
@@ -89,7 +98,7 @@ def list_histories(
         page_size=page_size,
         next_page=next_page,
         prev_page=prev_page,
-        items=results,
+        items=items,
     )
 
 @router.post(

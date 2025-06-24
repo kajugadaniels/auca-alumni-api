@@ -108,3 +108,54 @@ def list_history(
         items=items,
     )
 
+@router.post(
+    "/add",
+    response_model=OpportunityHistorySchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new opportunity history entry",
+)
+def add_history(
+    request: Request,
+    opportunity_id: int = Form(..., description="ID of related opportunity"),
+    user_id: int = Form(..., description="ID of user making the comment"),
+    comment: str = Form(..., min_length=5, description="Comment text"),
+    status: str = Form(..., description="Status update"),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate payload
+    data = CreateOpportunityHistorySchema(
+        opportunity_id=opportunity_id,
+        user_id=user_id,
+        comment=comment,
+        status=status,
+    )
+
+    # 2) Existence checks
+    if not db.query(Opportunities).get(data.opportunity_id):
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    if not db.query(Users).get(data.user_id):
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 3) Persist
+    new_h = OpportunityHistories(
+        opportunity_id=data.opportunity_id,
+        user_id=data.user_id,
+        comment=data.comment,
+        status=data.status,
+    )
+    db.add(new_h)
+    db.commit()
+    db.refresh(new_h)
+
+    # 4) Nested objects
+    user = db.query(Users).get(new_h.user_id)
+    opp = db.query(Opportunities).get(new_h.opportunity_id)
+
+    return OpportunityHistorySchema(
+        **{
+            **new_h.__dict__,
+            "user": OpportunityUserSchema.model_validate(user),
+            "opportunity": OpportunitySummarySchema.model_validate(opp),
+        }
+    )
+

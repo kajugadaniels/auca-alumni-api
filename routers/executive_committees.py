@@ -239,3 +239,25 @@ async def update_committee_member(
         }
     )
 
+@router.delete(
+    "/{member_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete an executive committee member and their photo",
+)
+def delete_committee_member(
+    member_id: int,
+    db: Session = Depends(get_db),
+):
+    member = db.query(ExecutiveComittes).get(member_id)
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    # remove photo file
+    path = os.path.join(os.getcwd(), member.photo.lstrip("/"))
+    if os.path.isfile(path):
+        os.remove(path)
+
+    db.delete(member)
+    db.commit()
+
+    return JSONResponse({"status":"success","message":f"Member {member_id} deleted."})

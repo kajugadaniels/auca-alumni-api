@@ -200,3 +200,23 @@ def update_history(
         created_at=hist.created_at,
         updated_at=hist.updated_at,
     )
+
+@router.delete(
+    "/{history_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific opportunity history entry",
+)
+def delete_history(
+    history_id: int,
+    db: Session = Depends(get_db),
+):
+    hist = db.query(OpportunityHistories).get(history_id)
+    if not hist:
+        raise HTTPException(status_code=404, detail="History not found")
+
+    db.delete(hist)
+    db.commit()
+    return JSONResponse(
+        status_code=200,
+        content={"status": "success", "message": f"History ID {history_id} deleted."},
+    )

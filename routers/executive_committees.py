@@ -91,3 +91,62 @@ def list_committees(
         prev_page=make_url(page-1) if page > 1 else None,
         items=items,
     )
+
+@router.post(
+    "/add",
+    response_model=ExecutiveCommitteeSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a new executive committee member",
+)
+async def add_committee_member(
+    request: Request,
+    name: str = Form(..., description="Full name"),
+    position: str = Form(..., description="Position/title"),
+    photo: UploadFile = File(..., description="Member photo"),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate payload
+    schema = CreateExecutiveCommitteeSchema(
+        name=name, position=position, photo=await photo.read()
+    )
+
+    # 2) Prevent duplicate name+position
+    if db.query(ExecutiveComittes).filter_by(
+        name=schema.name, position=schema.position
+    ).first():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "duplicate_member", "message": "Member already exists."},
+        )
+
+    # 3) Process image
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    slug = "_".join(schema.name.lower().split())
+    filename = f"{slug}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    buf = BytesIO(schema.photo)
+    try:
+        img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # 4) Persist
+    member = ExecutiveComittes(
+        name=schema.name,
+        position=schema.position,
+        photo=f"/uploads/executive_committees/{filename}",
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+
+    # 5) Return response
+    base = str(request.base_url).rstrip("/")
+    return ExecutiveCommitteeSchema(
+        **{
+            **member.__dict__,
+            "photo": f"{base}{member.photo}"
+        }
+    )

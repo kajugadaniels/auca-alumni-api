@@ -224,3 +224,32 @@ def update_faculty(
     db.refresh(fac)
 
     return FacultySchema.from_orm(fac)
+
+# ------------------------------------------------------------------------
+# DELETE /faculties/{faculty_id}/delete: delete a faculty
+# ------------------------------------------------------------------------
+@router.delete(
+    "/{faculty_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific faculty",
+)
+def delete_faculty(
+    faculty_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Deletes the faculty identified by `faculty_id`.
+    """
+    fac = db.query(Faculties).get(faculty_id)
+    if not fac:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "faculty_not_found", "message": f"No faculty found with ID {faculty_id}."},
+        )
+
+    db.delete(fac)
+    db.commit()
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={"status": "success", "message": f"Faculty with ID {faculty_id} deleted successfully."},
+    )

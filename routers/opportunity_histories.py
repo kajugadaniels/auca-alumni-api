@@ -1,6 +1,7 @@
 from fastapi import (
-    APIRouter, Depends, HTTPException, Query, Request, status, Body
+    APIRouter, Depends, HTTPException, Query, Request, status, Body,
 )
+from typing import Optional
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, asc, desc

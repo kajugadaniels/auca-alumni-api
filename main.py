@@ -19,6 +19,7 @@ from routers import (
     opportunities,
     opportunity_histories,
     executive_committees,
+    departments,
 )
 
 # Auto-create tables (or manage migrations externally)
@@ -137,4 +138,10 @@ app.include_router(
     executive_committees.router,
     prefix="/api",
     tags=["executive_committees"],
+)
+
+app.include_router(
+    departments.router,
+    prefix="/api",
+    tags=["departments"],
 )

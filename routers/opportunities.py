@@ -122,3 +122,98 @@ def list_opportunities(
         prev_page=prev_page,
         items=items,
     )
+
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new opportunity with image upload and auto‐crop",
+)
+async def add_opportunity(
+    request: Request,
+    title: str = Form(..., description="Opportunity title"),
+    description: str = Form(..., description="Opportunity description"),
+    date: datetime.date = Form(..., description="Date of the opportunity"),
+    user_id: int = Form(..., description="ID of the user posting"),
+    status: Optional[str] = Form(None, description="Opportunity status"),
+    link: Optional[str] = Form(None, description="External link"),
+    photo: UploadFile = File(..., description="Image file for the opportunity"),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate payload
+    data = CreateOpportunitySchema(
+        title=title,
+        description=description,
+        date=date,
+        user_id=user_id,
+        status=status,
+        link=link,
+    )
+
+    # 2) Prevent duplicate
+    if (
+        db.query(Opportunities)
+        .filter(
+            Opportunities.title == data.title,
+            Opportunities.date == data.date,
+            Opportunities.user_id == data.user_id,
+        )
+        .first()
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "opportunity_exists", "message": "Duplicate opportunity"},
+        )
+
+    # 3) Build filename
+    slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+    date_str = data.date.strftime("%Y%m%d")
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"{slug}_{date_str}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    # 4) Validate and resize in-memory
+    contents = await photo.read()
+    buf = BytesIO(contents)
+    try:
+        img = Image.open(buf)
+        img = img.convert("RGB")
+        img = img.resize((1270, 720), Image.LANCZOS)
+    except UnidentifiedImageError:
+        raise HTTPException(400, detail="Invalid image file")
+
+    # 5) Save to disk
+    img.save(filepath, quality=85)
+
+    # 6) Persist record
+    new_op = Opportunities(
+        title=data.title,
+        description=data.description,
+        date=data.date,
+        user_id=data.user_id,
+        status=data.status,
+        link=data.link,
+        photo=f"/uploads/opportunities/{filename}",
+    )
+    db.add(new_op)
+    db.commit()
+    db.refresh(new_op)
+
+    # 7) Build response
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{new_op.photo}"
+    user = db.query(Users).get(new_op.user_id)
+
+    return JSONResponse(
+        status_code=201,
+        content={
+            "status": "success",
+            "message": "Opportunity created successfully",
+            "opportunity": OpportunitySchema(
+                **{
+                    **new_op.__dict__,
+                    "photo": photo_url,
+                    "user": OpportunityUserSchema.model_validate(user),
+                }
+            ).model_dump(),
+        },
+    )

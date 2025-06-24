@@ -201,3 +201,20 @@ def update_department(
         updated_at=dept.updated_at,
     )
 
+@router.delete(
+    "/{dept_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a department by ID",
+)
+def delete_department(
+    dept_id: int,
+    db: Session = Depends(get_db),
+):
+    dept = db.query(Departments).get(dept_id)
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+    db.delete(dept)
+    db.commit()
+    return JSONResponse(
+        {"status": "success", "message": f"Department {dept_id} deleted."}
+    )

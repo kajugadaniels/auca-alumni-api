@@ -107,3 +107,51 @@ def list_faculties(
         next_page=next_page,
         items=items,
     )
+
+# ------------------------------------------------------------------------
+# POST /faculties/add: create a new faculty
+# ------------------------------------------------------------------------
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new faculty",
+)
+def add_faculty(
+    data: CreateFacultySchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Creates a new faculty:
+    - Validates via CreateFacultySchema
+    - Prevents duplicate name
+    """
+    # 1) Duplicate check
+    if db.query(Faculties).filter_by(name=data.name).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "faculty_exists",
+                "message": f"A faculty named '{data.name}' already exists."
+            },
+        )
+
+    # 2) Persist record
+    new_fac = Faculties(name=data.name, description=data.description)
+    db.add(new_fac)
+    db.commit()
+    db.refresh(new_fac)
+
+    return JSONResponse(
+        status_code=status.HTTP_201_CREATED,
+        content={
+            "status": "success",
+            "message": "Faculty created successfully.",
+            "faculty": {
+                "id": new_fac.id,
+                "name": new_fac.name,
+                "description": new_fac.description,
+                "created_at": new_fac.created_at.isoformat(),
+                "updated_at": new_fac.updated_at.isoformat(),
+            },
+        },
+    )

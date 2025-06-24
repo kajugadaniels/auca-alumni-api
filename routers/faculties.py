@@ -155,3 +155,27 @@ def add_faculty(
             },
         },
     )
+
+# ------------------------------------------------------------------------
+# GET /faculties/{faculty_id}: retrieve detailed faculty by ID
+# ------------------------------------------------------------------------
+@router.get(
+    "/{faculty_id}",
+    response_model=FacultySchema,
+    summary="Retrieve detailed information for a single faculty by ID",
+)
+def get_faculty(
+    faculty_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Fetch a single faculty by ID.
+    Returns 404 if not found.
+    """
+    fac = db.query(Faculties).get(faculty_id)
+    if not fac:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "faculty_not_found", "message": f"No faculty found with ID {faculty_id}."},
+        )
+    return FacultySchema.from_orm(fac)

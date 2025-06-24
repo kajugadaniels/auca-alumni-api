@@ -187,3 +187,33 @@ async def add_certification(
         updated_at=cert.updated_at,
     )
 
+@router.get(
+    "/{cert_id}",
+    response_model=CertificationSchema,
+    summary="Get a single certification by ID",
+)
+def get_certification(
+    cert_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    cert = db.query(Certifications).get(cert_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certification not found")
+    user = db.query(Users).get(cert.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    base = str(request.base_url).rstrip("/")
+    return CertificationSchema(
+        id=cert.id,
+        user=UserNestedSchema.model_validate(user),
+        certificate_name=cert.certificate_name,
+        year=cert.year,
+        type=cert.type,
+        description=cert.description,
+        image=f"{base}{cert.image}",
+        created_at=cert.created_at,
+        updated_at=cert.updated_at,
+    )
+

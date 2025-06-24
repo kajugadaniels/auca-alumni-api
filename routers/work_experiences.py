@@ -178,3 +178,35 @@ def add_work_experience(
         user=user,
     )
 
+# ------------------------------------------------------------------------
+# GET /work-experiences/{exp_id}: retrieve one experience
+# ------------------------------------------------------------------------
+@router.get(
+    "/{exp_id}",
+    response_model=WorkExperienceSchema,
+    summary="Retrieve detailed information for a single work experience",
+)
+def get_work_experience(
+    exp_id: int,
+    db: Session = Depends(get_db),
+):
+    exp = db.query(WorkExperiences).get(exp_id)
+    if not exp:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": f"No experience found with ID {exp_id}."}
+        )
+    user = db.query(Users).get(exp.user_id) if exp.user_id else None
+    return WorkExperienceSchema(
+        id=exp.id,
+        company=exp.company,
+        employer=exp.employer,
+        job_title=exp.job_title,
+        job_description=exp.job_description,
+        start_date=exp.start_date,
+        end_date=exp.end_date,
+        created_at=exp.created_at,
+        updated_at=exp.updated_at,
+        user=user,
+    )
+

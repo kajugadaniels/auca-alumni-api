@@ -110,13 +110,21 @@ def add_history(
     data: CreateHistorySchema = Body(...),
     db: Session = Depends(get_db),
 ):
-    # 1) FK existence checks
+    """
+    1) Ensure both user_id and opportunity_id exist.
+    2) Persist the history entry.
+    3) Return nested user and opportunity details.
+    """
+    # Validate user
     if not db.query(Users).get(data.user_id):
         raise HTTPException(status_code=400, detail="Invalid user_id")
-    if not db.query(Opportunities).get(data.opportunity_id):
+
+    # Validate opportunity
+    opp = db.query(Opportunities).get(data.opportunity_id)
+    if not opp:
         raise HTTPException(status_code=400, detail="Invalid opportunity_id")
 
-    # 2) Persist
+    # Persist
     new_hist = OpportunityHistories(
         opportunity_id=data.opportunity_id,
         user_id=data.user_id,
@@ -127,14 +135,13 @@ def add_history(
     db.commit()
     db.refresh(new_hist)
 
-    # 3) Build nested user info
-    usr = db.query(Users).get(new_hist.user_id)
-    user_info = UserInfoSchema.model_validate(usr)
+    # Build nested objects
+    user_info = UserInfoSchema.model_validate(db.query(Users).get(new_hist.user_id))
+    opp_info  = OpportunityInfoSchema.model_validate(opp)
 
-    # 4) Build the full dict, with datetimes turned into ISO strings
     history_data = OpportunityHistorySchema(
         id=new_hist.id,
-        opportunity_id=new_hist.opportunity_id,
+        opportunity=opp_info,
         user=user_info,
         comment=new_hist.comment,
         status=new_hist.status,

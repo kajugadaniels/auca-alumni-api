@@ -351,3 +351,28 @@ async def update_personal_information(
         updated_at=pi.updated_at,
     )
 
+# ------------------------------------------------------------------------
+# DELETE /personal-information/{id}/delete: delete a profile and its photo
+# ------------------------------------------------------------------------
+@router.delete(
+    "/{pi_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a personal information record and its photo",
+)
+def delete_personal_information(
+    pi_id: int,
+    db: Session = Depends(get_db),
+):
+    pi = db.query(PersonalInformation).get(pi_id)
+    if not pi:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Profile not found")
+
+    # remove photo
+    path = os.path.join(os.getcwd(), pi.photo.lstrip("/"))
+    if os.path.isfile(path):
+        try: os.remove(path)
+        except: pass
+
+    db.delete(pi)
+    db.commit()
+    return JSONResponse({"status": "success", "message": f"Profile {pi_id} deleted."})

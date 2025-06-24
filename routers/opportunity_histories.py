@@ -92,7 +92,6 @@ def list_histories(
         items=results,
     )
 
-
 @router.post(
     "/add",
     status_code=status.HTTP_201_CREATED,
@@ -119,24 +118,27 @@ def add_history(
     db.commit()
     db.refresh(new_hist)
 
-    # 3) Build nested user
+    # 3) Build nested user info
     usr = db.query(Users).get(new_hist.user_id)
     user_info = UserInfoSchema.model_validate(usr)
+
+    # 4) Build the full dict, with datetimes turned into ISO strings
+    history_data = OpportunityHistorySchema(
+        id=new_hist.id,
+        opportunity_id=new_hist.opportunity_id,
+        user=user_info,
+        comment=new_hist.comment,
+        status=new_hist.status,
+        created_at=new_hist.created_at,
+        updated_at=new_hist.updated_at,
+    ).model_dump(mode="json")
 
     return JSONResponse(
         status_code=201,
         content={
             "status": "success",
             "message": "History entry created.",
-            "history": OpportunityHistorySchema(
-                id=new_hist.id,
-                opportunity_id=new_hist.opportunity_id,
-                user=user_info,
-                comment=new_hist.comment,
-                status=new_hist.status,
-                created_at=new_hist.created_at,
-                updated_at=new_hist.updated_at,
-            ).model_dump(),
+            "history": history_data,
         },
     )
 

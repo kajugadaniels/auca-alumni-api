@@ -90,3 +90,48 @@ def list_histories(
         prev_page=prev_page,
         items=results,
     )
+
+@router.post(
+    "/add",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new opportunity history entry",
+)
+def add_history(
+    data: CreateHistorySchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate FK existence
+    if not db.query(Users).get(data.user_id):
+        raise HTTPException(status_code=400, detail="Invalid user_id")
+    if not db.query(Opportunities).get(data.opportunity_id):
+        raise HTTPException(status_code=400, detail="Invalid opportunity_id")
+
+    # 2) Persist
+    new_hist = OpportunityHistories(
+        opportunity_id=data.opportunity_id,
+        user_id=data.user_id,
+        comment=data.comment,
+        status=data.status,
+    )
+    db.add(new_hist)
+    db.commit()
+    db.refresh(new_hist)
+
+    # 3) Return nested schema
+    user = db.query(Users).get(data.user_id)
+    return JSONResponse(
+        status_code=201,
+        content={
+            "status": "success",
+            "message": "History entry created.",
+            "history": OpportunityHistorySchema(
+                id=new_hist.id,
+                opportunity_id=new_hist.opportunity_id,
+                user=UserInfoSchema.from_attributes(user),
+                comment=new_hist.comment,
+                status=new_hist.status,
+                created_at=new_hist.created_at,
+                updated_at=new_hist.updated_at,
+            ).model_dump(),
+        },
+    )

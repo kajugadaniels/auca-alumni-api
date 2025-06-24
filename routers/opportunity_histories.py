@@ -163,26 +163,33 @@ def add_history(
 @router.get(
     "/{history_id}",
     response_model=OpportunityHistorySchema,
-    summary="Retrieve detailed opportunity history by ID",
+    summary="Retrieve detailed opportunity history by ID with nested info",
 )
 def get_history(
     history_id: int,
     db: Session = Depends(get_db),
 ):
+    """
+    1) Fetch history, then its user and opportunity.
+    2) Return all with nested objects.
+    """
     hist = db.query(OpportunityHistories).get(history_id)
     if not hist:
         raise HTTPException(status_code=404, detail="History not found")
 
     usr = db.query(Users).get(hist.user_id)
+    opp = db.query(Opportunities).get(hist.opportunity_id)
     if not usr:
         raise HTTPException(status_code=500, detail="User referenced not found")
+    if not opp:
+        raise HTTPException(status_code=500, detail="Opportunity referenced not found")
 
-    # Use model_validate instead of from_attributes
     user_info = UserInfoSchema.model_validate(usr)
+    opp_info  = OpportunityInfoSchema.model_validate(opp)
 
     return OpportunityHistorySchema(
         id=hist.id,
-        opportunity_id=hist.opportunity_id,
+        opportunity=opp_info,
         user=user_info,
         comment=hist.comment,
         status=hist.status,

@@ -9,6 +9,7 @@ from fastapi import (
     Request,
     status,
     Form,
+    Body,
 )
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -115,22 +116,18 @@ def list_history(
     summary="Create a new opportunity history entry",
 )
 def add_history(
-    request: Request,
-    opportunity_id: int = Form(..., description="ID of related opportunity"),
-    user_id: int = Form(..., description="ID of user making the comment"),
-    comment: str = Form(..., min_length=5, description="Comment text"),
-    status: str = Form(..., description="Status update"),
+    data: CreateOpportunityHistorySchema = Body(...),
     db: Session = Depends(get_db),
 ):
-    # 1) Validate payload
-    data = CreateOpportunityHistorySchema(
-        opportunity_id=opportunity_id,
-        user_id=user_id,
-        comment=comment,
-        status=status,
-    )
+    """
+    1) Validate JSON payload via CreateOpportunityHistorySchema
+    2) Ensure related opportunity & user exist
+    3) Persist new history entry
+    4) Return the created record with nested user & opportunity
+    """
+    # 1) data is already validated
 
-    # 2) Existence checks
+    # 2) Check related records
     if not db.query(Opportunities).get(data.opportunity_id):
         raise HTTPException(status_code=404, detail="Opportunity not found")
     if not db.query(Users).get(data.user_id):
@@ -147,10 +144,9 @@ def add_history(
     db.commit()
     db.refresh(new_h)
 
-    # 4) Nested objects
+    # 4) Build nested response
     user = db.query(Users).get(new_h.user_id)
     opp = db.query(Opportunities).get(new_h.opportunity_id)
-
     return OpportunityHistorySchema(
         **{
             **new_h.__dict__,

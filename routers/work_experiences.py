@@ -278,3 +278,29 @@ def update_work_experience(
         updated_at=exp.updated_at,
         user=user,
     )
+
+# ------------------------------------------------------------------------
+# DELETE /work-experiences/{exp_id}/delete: delete an experience
+# ------------------------------------------------------------------------
+@router.delete(
+    "/{exp_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a work experience and return confirmation",
+)
+def delete_work_experience(
+    exp_id: int,
+    db: Session = Depends(get_db),
+):
+    exp = db.query(WorkExperiences).get(exp_id)
+    if not exp:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": f"No experience found with ID {exp_id}."}
+        )
+
+    db.delete(exp)
+    db.commit()
+    return JSONResponse(
+        status_code=200,
+        content={"status": "success", "message": f"Experience {exp_id} deleted."},
+    )

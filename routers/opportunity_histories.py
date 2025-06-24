@@ -68,15 +68,17 @@ def list_histories(
     items = []
     for hist in raw:
         usr = db.query(Users).get(hist.user_id)
-        if not usr:
-            raise HTTPException(status_code=500, detail="User referenced not found")
-        # ← here we switch to model_validate
+        opp = db.query(Opportunities).get(hist.opportunity_id)
+        if not usr or not opp:
+            raise HTTPException(status_code=500, detail="Referenced user or opportunity not found")
+
         user_info = UserInfoSchema.model_validate(usr)
+        opp_info  = OpportunityInfoSchema.model_validate(opp)
 
         items.append(
             OpportunityHistorySchema(
                 id=hist.id,
-                opportunity_id=hist.opportunity_id,
+                opportunity=opp_info,
                 user=user_info,
                 comment=hist.comment,
                 status=hist.status,

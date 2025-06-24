@@ -262,3 +262,99 @@ def get_opportunity(
         user=OpportunityUserSchema.from_attributes(user),
     )
 
+@router.put(
+    "/{op_id}/update",
+    response_model=OpportunitySchema,
+    summary="Update an existing opportunity by ID",
+)
+async def update_opportunity(
+    op_id: int,
+    request: Request,
+    title: str = Form(..., description="Updated title"),
+    description: str = Form(..., description="Updated description"),
+    date: datetime.date = Form(..., description="Updated date"),
+    status: Optional[str] = Form(None),
+    link: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+):
+    # 1) Fetch
+    op = db.query(Opportunities).get(op_id)
+    if not op:
+        raise HTTPException(404, detail="Opportunity not found")
+
+    # 2) Validate metadata
+    data = CreateOpportunitySchema(
+        title=title,
+        description=description,
+        date=date,
+        user_id=op.user_id,
+        status=status,
+        link=link,
+    )
+
+    # 3) Prevent duplicate
+    dup = (
+        db.query(Opportunities)
+        .filter(
+            Opportunities.id != op_id,
+            Opportunities.title == data.title,
+            Opportunities.date == data.date,
+            Opportunities.user_id == op.user_id,
+        )
+        .first()
+    )
+    if dup:
+        raise HTTPException(400, detail="Duplicate opportunity")
+
+    # 4) Update fields
+    op.title = data.title
+    op.description = data.description
+    op.date = data.date
+    op.status = data.status
+    op.link = data.link
+
+    # 5) Handle new photo
+    if photo:
+        old = os.path.join(os.getcwd(), op.photo.lstrip("/"))
+        if os.path.isfile(old):
+            os.remove(old)
+
+        slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
+        date_str = data.date.strftime("%Y%m%d")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{date_str}{ext}"
+        fp = os.path.join(UPLOAD_DIR, filename)
+
+        buf = BytesIO(await photo.read())
+        try:
+            img = Image.open(buf)
+            img = img.convert("RGB")
+            img = img.resize((1270, 720), Image.LANCZOS)
+            img.save(fp, quality=85)
+        except UnidentifiedImageError:
+            raise HTTPException(400, detail="Invalid image")
+
+        op.photo = f"/uploads/opportunities/{filename}"
+
+    db.commit()
+    db.refresh(op)
+
+    # 6) Nested user & photo URL
+    user = db.query(Users).get(op.user_id)
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{op.photo}"
+
+    return OpportunitySchema(
+        id=op.id,
+        photo=photo_url,
+        title=op.title,
+        description=op.description,
+        date=op.date,
+        status=op.status,
+        link=op.link,
+        created_at=op.created_at,
+        updated_at=op.updated_at,
+        user=OpportunityUserSchema.from_attributes(user),
+    )
+

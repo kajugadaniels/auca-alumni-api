@@ -179,3 +179,48 @@ def get_faculty(
             detail={"error": "faculty_not_found", "message": f"No faculty found with ID {faculty_id}."},
         )
     return FacultySchema.from_orm(fac)
+
+# ------------------------------------------------------------------------
+# PUT /faculties/{faculty_id}/update: update an existing faculty by ID
+# ------------------------------------------------------------------------
+@router.put(
+    "/{faculty_id}/update",
+    response_model=FacultySchema,
+    summary="Update an existing faculty by ID",
+)
+def update_faculty(
+    faculty_id: int,
+    data: CreateFacultySchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Updates a faculty:
+    - Validates via CreateFacultySchema
+    - Prevents duplicate name on other records
+    """
+    fac = db.query(Faculties).get(faculty_id)
+    if not fac:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "faculty_not_found", "message": f"No faculty found with ID {faculty_id}."},
+        )
+
+    # Duplicate name check
+    if (
+        db.query(Faculties)
+        .filter(Faculties.id != faculty_id, Faculties.name == data.name)
+        .first()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "faculty_exists", "message": f"Another faculty named '{data.name}' already exists."},
+        )
+
+    # Apply updates
+    fac.name = data.name
+    fac.description = data.description
+    db.add(fac)
+    db.commit()
+    db.refresh(fac)
+
+    return FacultySchema.from_orm(fac)

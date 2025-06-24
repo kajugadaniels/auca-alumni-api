@@ -210,3 +210,71 @@ def get_work_experience(
         user=user,
     )
 
+# ------------------------------------------------------------------------
+# PUT /work-experiences/{exp_id}/update: update an existing experience
+# ------------------------------------------------------------------------
+@router.put(
+    "/{exp_id}/update",
+    response_model=WorkExperienceSchema,
+    summary="Update a work experience by ID",
+)
+def update_work_experience(
+    exp_id: int,
+    data: CreateWorkExperienceSchema,
+    db: Session = Depends(get_db),
+):
+    exp = db.query(WorkExperiences).get(exp_id)
+    if not exp:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "message": f"No experience found with ID {exp_id}."}
+        )
+    user = db.query(Users).get(data.user_id)
+    if not user:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_user", "message": f"No user found with ID {data.user_id}."}
+        )
+
+    # Prevent duplicate on another record
+    dup = (
+        db.query(WorkExperiences)
+        .filter(
+            WorkExperiences.id != exp_id,
+            WorkExperiences.company == data.company.strip(),
+            WorkExperiences.user_id == data.user_id,
+            WorkExperiences.start_date == data.start_date,
+        )
+        .first()
+    )
+    if dup:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "duplicate", "message": "Another identical experience exists."}
+        )
+
+    # Apply updates
+    exp.company = data.company.strip()
+    exp.employer = data.employer.strip()
+    exp.job_title = data.job_title.strip()
+    exp.job_description = data.job_description.strip()
+    exp.start_date = data.start_date
+    exp.end_date = data.end_date
+    exp.user_id = data.user_id
+
+    db.add(exp)
+    db.commit()
+    db.refresh(exp)
+
+    return WorkExperienceSchema(
+        id=exp.id,
+        company=exp.company,
+        employer=exp.employer,
+        job_title=exp.job_title,
+        job_description=exp.job_description,
+        start_date=exp.start_date,
+        end_date=exp.end_date,
+        created_at=exp.created_at,
+        updated_at=exp.updated_at,
+        user=user,
+    )

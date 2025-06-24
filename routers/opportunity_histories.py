@@ -164,14 +164,17 @@ def get_history(
     if not hist:
         raise HTTPException(status_code=404, detail="History not found")
 
-    user = db.query(Users).get(hist.user_id)
-    if not user:
-        raise HTTPException(status_code=500, detail="User data missing")
+    usr = db.query(Users).get(hist.user_id)
+    if not usr:
+        raise HTTPException(status_code=500, detail="User referenced not found")
+
+    # Use model_validate instead of from_attributes
+    user_info = UserInfoSchema.model_validate(usr)
 
     return OpportunityHistorySchema(
         id=hist.id,
         opportunity_id=hist.opportunity_id,
-        user=UserInfoSchema.from_attributes(user),
+        user=user_info,
         comment=hist.comment,
         status=hist.status,
         created_at=hist.created_at,

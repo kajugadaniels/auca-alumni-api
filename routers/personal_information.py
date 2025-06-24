@@ -20,6 +20,7 @@ from schemas.personal_information import (
     PersonalInformationListResponse
 )
 from routers.auth import get_current_user
+from fastapi.encoders import jsonable_encoder
 
 router = APIRouter(
     prefix="/personal-information",
@@ -131,7 +132,7 @@ async def add_personal_information(
     country_id: Optional[str] = Form(None),
     department: Optional[str] = Form(None),
     gender: bool = Form(...),
-    status: Optional[str] = Form(None),
+    status_info: Optional[str] = Form(None, alias="status", description="Current status"),
     photo: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
@@ -157,7 +158,7 @@ async def add_personal_information(
         country_id=country_id,
         department=department,
         gender=gender,
-        status=status,
+        status=status_info,
     )
 
     # 2) Verify user exists
@@ -206,34 +207,38 @@ async def add_personal_information(
     db.commit()
     db.refresh(pi)
 
-    # 6) Build response
+    # 6) Build nested schema and JSON-serializable dict
     base = str(request.base_url).rstrip("/")
+    schema = PersonalInformationSchema(
+        id=pi.id,
+        photo=f"{base}{pi.photo}",
+        bio=pi.bio,
+        current_employer=pi.current_employer,
+        self_employed=pi.self_employed,
+        latest_education_level=pi.latest_education_level,
+        address=pi.address,
+        profession_id=pi.profession_id,
+        user=user,
+        dob=pi.dob,
+        start_date=pi.start_date,
+        end_date=pi.end_date,
+        faculty_id=pi.faculty_id,
+        country_id=pi.country_id,
+        department=pi.department,
+        gender=pi.gender,
+        status=pi.status,
+        created_at=pi.created_at,
+        updated_at=pi.updated_at,
+    )
+    profile_dict = schema.model_dump(mode="json")
+
+    # 7) Return success JSON
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
             "status": "success",
             "message": "Personal information created successfully.",
-            "profile": PersonalInformationSchema(
-                id=pi.id,
-                photo=f"{base}{pi.photo}",
-                bio=pi.bio,
-                current_employer=pi.current_employer,
-                self_employed=pi.self_employed,
-                latest_education_level=pi.latest_education_level,
-                address=pi.address,
-                profession_id=pi.profession_id,
-                user=user,
-                dob=pi.dob,
-                start_date=pi.start_date,
-                end_date=pi.end_date,
-                faculty_id=pi.faculty_id,
-                country_id=pi.country_id,
-                department=pi.department,
-                gender=pi.gender,
-                status=pi.status,
-                created_at=pi.created_at,
-                updated_at=pi.updated_at,
-            ).model_dump(),
+            "profile": profile_dict,
         },
     )
 

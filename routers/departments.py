@@ -156,3 +156,48 @@ def get_department(
         updated_at=dept.updated_at,
     )
 
+@router.put(
+    "/{dept_id}/update",
+    response_model=DepartmentSchema,
+    summary="Update an existing department by ID",
+)
+def update_department(
+    dept_id: int,
+    data: CreateDepartmentSchema = Body(...),
+    db: Session = Depends(get_db),
+):
+    dept = db.query(Departments).get(dept_id)
+    if not dept:
+        raise HTTPException(status_code=404, detail="Department not found")
+
+    # Validate faculty
+    faculty = db.query(Faculties).get(data.faculty_id)
+    if not faculty:
+        raise HTTPException(status_code=400, detail="Faculty not found")
+
+    # Prevent duplicate
+    dup = (
+        db.query(Departments)
+        .filter(
+            Departments.id != dept_id,
+            Departments.faculty_id == data.faculty_id,
+            Departments.name == data.name.strip()
+        )
+        .first()
+    )
+    if dup:
+        raise HTTPException(status_code=400, detail="Another department with same name exists")
+
+    dept.faculty_id = data.faculty_id
+    dept.name = data.name.strip()
+    db.commit()
+    db.refresh(dept)
+
+    return DepartmentSchema(
+        id=dept.id,
+        faculty=FacultyNestedSchema.model_validate(faculty),
+        name=dept.name,
+        created_at=dept.created_at,
+        updated_at=dept.updated_at,
+    )
+

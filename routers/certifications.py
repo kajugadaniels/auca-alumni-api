@@ -301,3 +301,22 @@ async def update_certification(
         updated_at=cert.updated_at,
     )
 
+@router.delete(
+    "/{cert_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a certification and its image",
+)
+def delete_certification(
+    cert_id: int,
+    db: Session = Depends(get_db),
+):
+    cert = db.query(Certifications).get(cert_id)
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certification not found")
+    # remove image
+    path = os.path.join(os.getcwd(), cert.image.lstrip("/"))
+    if os.path.isfile(path):
+        os.remove(path)
+    db.delete(cert)
+    db.commit()
+    return JSONResponse({"status":"success","message":f"Certification {cert_id} deleted."})

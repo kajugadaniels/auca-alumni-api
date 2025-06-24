@@ -13,6 +13,7 @@ from schemas.opportunity_histories import (
     OpportunityHistorySchema,
     OpportunityHistoryListResponse,
     UserInfoSchema,
+    OpportunityInfoSchema
 )
 from routers.auth import get_current_user
 

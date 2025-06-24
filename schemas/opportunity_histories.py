@@ -55,3 +55,11 @@ class CreateHistorySchema(BaseModel):
         if not v.strip():
             raise ValueError("Comment must not be blank")
         return v.strip()
+
+class OpportunityInfoSchema(BaseModel):
+    id: int
+    title: str
+    description: str
+    date: datetime.date
+
+    model_config = {"from_attributes": True}

@@ -182,3 +182,33 @@ def get_history(
             "opportunity": OpportunitySummarySchema.model_validate(opp),
         }
     )
+
+@router.put(
+    "/{hist_id}/update",
+    response_model=OpportunityHistorySchema,
+    summary="Update an existing history entry by ID",
+)
+def update_history(
+    hist_id: int,
+    comment: str = Form(..., min_length=5, description="Updated comment"),
+    status: str = Form(..., description="Updated status"),
+    db: Session = Depends(get_db),
+):
+    h = db.query(OpportunityHistories).get(hist_id)
+    if not h:
+        raise HTTPException(status_code=404, detail="History entry not found")
+
+    h.comment = comment
+    h.status = status
+    db.commit()
+    db.refresh(h)
+
+    user = db.query(Users).get(h.user_id)
+    opp = db.query(Opportunities).get(h.opportunity_id)
+    return OpportunityHistorySchema(
+        **{
+            **h.__dict__,
+            "user": OpportunityUserSchema.model_validate(user),
+            "opportunity": OpportunitySummarySchema.model_validate(opp),
+        }
+    )

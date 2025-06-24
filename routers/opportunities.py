@@ -217,3 +217,36 @@ async def add_opportunity(
             ).model_dump(),
         },
     )
+
+@router.get(
+    "/{op_id}",
+    response_model=OpportunitySchema,
+    summary="Retrieve detailed information for a single opportunity by ID",
+)
+def get_opportunity(
+    op_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # 1) Fetch record
+    op = db.query(Opportunities).get(op_id)
+    if not op:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    # 2) Fetch user
+    user = db.query(Users).get(op.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # 3) Build photo URL
+    base = str(request.base_url).rstrip("/")
+    photo_url = f"{base}{op.photo}"
+
+    return OpportunitySchema(
+        **{
+            **op.__dict__,
+            "photo": photo_url,
+            "user": OpportunityUserSchema.model_validate(user),
+        }
+    )
+

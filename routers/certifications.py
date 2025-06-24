@@ -109,3 +109,81 @@ def list_certifications(
         items=items,
     )
 
+@router.post(
+    "/add",
+    response_model=CertificationSchema,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a new certification with image upload",
+)
+async def add_certification(
+    request: Request,
+    user_id: int = Form(..., description="ID of the user"),
+    certificate_name: str = Form(..., description="Name of the certification"),
+    year: int = Form(..., description="Year obtained"),
+    type: str = Form(..., description="Certification type"),
+    description: str = Form(..., description="Description"),
+    image: UploadFile = File(..., description="Certificate image file"),
+    db: Session = Depends(get_db),
+):
+    # 1) Validate payload
+    schema = CreateCertificationSchema(
+        user_id=user_id,
+        certificate_name=certificate_name,
+        year=year,
+        type=type,
+        description=description,
+        image=await image.read()
+    )
+
+    # 2) Verify user exists
+    user = db.query(Users).get(schema.user_id)
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
+    # 3) Prevent duplicates for same user/year/name
+    if db.query(Certifications).filter_by(
+        user_id=schema.user_id,
+        certificate_name=schema.certificate_name,
+        year=schema.year
+    ).first():
+        raise HTTPException(status_code=400, detail="Duplicate certification record")
+
+    # 4) Process image
+    ext = os.path.splitext(image.filename)[1] or ".jpg"
+    slug = "_".join(schema.certificate_name.lower().split())
+    filename = f"{slug}_{schema.year}{ext}"
+    filepath = os.path.join(UPLOAD_DIR, filename)
+
+    buf = BytesIO(schema.image)
+    try:
+        img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+        img.save(filepath, quality=85)
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # 5) Persist
+    cert = Certifications(
+        user_id=schema.user_id,
+        certificate_name=schema.certificate_name,
+        year=schema.year,
+        type=schema.type,
+        description=schema.description,
+        image=f"/uploads/certifications/{filename}",
+    )
+    db.add(cert)
+    db.commit()
+    db.refresh(cert)
+
+    base = str(request.base_url).rstrip("/")
+    return CertificationSchema(
+        id=cert.id,
+        user=UserNestedSchema.model_validate(user),
+        certificate_name=cert.certificate_name,
+        year=cert.year,
+        type=cert.type,
+        description=cert.description,
+        image=f"{base}{cert.image}",
+        created_at=cert.created_at,
+        updated_at=cert.updated_at,
+    )
+

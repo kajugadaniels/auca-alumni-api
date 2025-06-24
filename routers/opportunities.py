@@ -340,3 +340,30 @@ async def update_opportunity(
         }
     )
 
+@router.delete(
+    "/{op_id}/delete",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a specific opportunity and its associated image",
+)
+def delete_opportunity(
+    op_id: int,
+    db: Session = Depends(get_db),
+):
+    # 1) Fetch
+    op = db.query(Opportunities).get(op_id)
+    if not op:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    # 2) Delete image file
+    path = os.path.join(os.getcwd(), op.photo.lstrip("/"))
+    if os.path.isfile(path):
+        os.remove(path)
+
+    # 3) Delete record
+    db.delete(op)
+    db.commit()
+
+    return JSONResponse(
+        status_code=200,
+        content={"status": "success", "message": f"Opportunity {op_id} deleted successfully."}
+    )

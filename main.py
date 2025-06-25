@@ -2,6 +2,7 @@ from database import engine, Base
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError, HTTPException as FastAPIHTTPException
 from routers import (
     students,
@@ -27,6 +28,20 @@ from routers import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="AUCA Alumni")
+
+# CORS configuration
+origins = [
+    "http://localhost:5173",  # The frontend running on this URL
+    "http://127.0.0.1:5173",  # You can also add more URLs if needed
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows requests from these origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Serve uploaded images
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")

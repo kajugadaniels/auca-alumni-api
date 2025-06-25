@@ -290,7 +290,7 @@ def login(
     )
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    "Validate token, check revocation, and return user."  
+    "Validate token, check revocation, and return user."
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
         raise HTTPException(
@@ -298,7 +298,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             detail={"error": "invalid_token", "message": "Token invalid or expired."},
             headers={"WWW-Authenticate": "Bearer"},
         )
-    # check if token has been revoked
+    # Check if token has been revoked
     jti = payload.get("jti")
     if db.query(RevokedToken).filter_by(jti=jti).first():
         raise HTTPException(
@@ -314,7 +314,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
             detail={"error": "user_not_found", "message": "User not found."},
             headers={"WWW-Authenticate": "Bearer"},
         )
-    return {"user": user, "jti": jti}
+    return user
 
 @router.get(
     "/verify-token",
@@ -334,7 +334,7 @@ def verify_token(
             "status": "success",
             "message": "Token is valid.",
             "user": {
-                "id": current_user.id,
+                "id": current_user.id,  # Now current_user is an actual user object
                 "email": current_user.email,
                 "first_name": current_user.first_name,
                 "last_name": current_user.last_name,

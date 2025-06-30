@@ -2,7 +2,7 @@ import os
 import random
 import smtplib
 from email.message import EmailMessage
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, File, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -365,67 +365,86 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
 @router.put(
     "/profile",
     status_code=status.HTTP_200_OK,
-    summary="Update current user's account and personal information",
-    response_model=UserResponseSchema,
+    summary="Upsert current user's account & personal profile",
 )
-def update_profile(
-    data: UpdateProfileSchema,
+async def update_profile(
+    data: UpdateProfileSchema = Depends(),
+    photo: UploadFile | None = File(
+        None, description="New profile photo (1270×720 will be auto-crop)"
+    ),
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    1) Update Users table fields (email, phone, name).
-    2) Upsert into PersonalInformation for the same user.
-    3) Return the updated user + merged personal info URL fields.
+    - Updates only the authenticated user's email & phone.
+    - If the user already has a PersonalInformation row, updates it;
+      otherwise inserts a new one (with a non-null placeholder photo).
+    - Optional photo upload is resized to 1270×720.
     """
-    # --- 1) Update basic user info ---
-    user = db.query(Users).get(current_user.id)
+    # 1) Update Users table
+    user = db.get(Users, current_user.id)
     if data.email:
         user.email = data.email
     if data.phone_number:
         user.phone_number = data.phone_number
-    if data.first_name:
-        user.first_name = data.first_name
-    if data.last_name:
-        user.last_name = data.last_name
     db.add(user)
 
-    # --- 2) Upsert personal information ---
+    # 2) Fetch or create PersonalInformation
     pi = db.query(PersonalInformation).filter_by(user_id=user.id).first()
     if not pi:
-        pi = PersonalInformation(user_id=user.id)
-    # apply any provided personal-info fields
+        # photo is non-nullable, so we initialize with a placeholder empty string
+        pi = PersonalInformation(
+            user_id=user.id,
+            photo=""  
+        )
+
+    # 3) Handle optional new photo
+    if photo:
+        # Build a unique filename
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"user_{user.id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
+        dest_path = os.path.join(UPLOAD_DIR, filename)
+
+        contents = await photo.read()
+        buf = BytesIO(contents)
+        try:
+            img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+            img.save(dest_path, quality=85)
+        except UnidentifiedImageError:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file is not a valid image."
+            )
+        # store the relative URL
+        pi.photo = f"/uploads/personal_information/{filename}"
+
+    # 4) Update all other allowed profile fields
     for field in (
         "bio", "current_employer", "self_employed", "latest_education_level",
         "address", "profession_id", "dob", "start_date", "end_date",
         "faculty_id", "country_id", "department", "gender", "status"
     ):
-        value = getattr(data, field, None)
-        if value is not None:
-            setattr(pi, field, value)
-    db.add(pi)
+        val = getattr(data, field)
+        if val is not None:
+            setattr(pi, field, val)
 
+    db.add(pi)
     db.commit()
     db.refresh(user)
-    db.refresh(pi)
-
-    # --- 3) Build response payload ---
-    profile_payload = PersonalInformationSchema.model_validate(pi).model_dump()
-    user_payload = {
-        "id": user.id,
-        "email": user.email,
-        "student_id": user.student_id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "phone_number": user.phone_number,
-        "profile": profile_payload,
-    }
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "success",
-            "message": "Your profile has been updated.",
-            "user": user_payload,
+            "message": "Your profile has been created/updated.",
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "student_id": user.student_id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "phone_number": user.phone_number,
+                "photo_url": pi.photo,
+            },
         },
     )

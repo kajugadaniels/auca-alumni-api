@@ -255,7 +255,7 @@ class PersonalInformation(Base):
     __tablename__ = "personal_information"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    photo = Column(String(255), nullable=False)
+    photo = Column(String(255), nullable=True)
     bio = Column(Text, nullable=False)
     current_employer = Column(String(255))
     self_employed = Column(String(255))

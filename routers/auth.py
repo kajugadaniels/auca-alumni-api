@@ -19,6 +19,7 @@ from schemas.auth import (
     TokenSchema,
     VerifyTokenResponse,
     LogoutResponse,
+    UpdateProfileSchema,
 )
 from utils.security import create_access_token, verify_password, decode_access_token
 
@@ -361,7 +362,7 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
         content={"status": "success", "message": "Logout successful; token revoked."},
     )
 
-router.put(
+@router.put(
     "/profile",
     status_code=status.HTTP_200_OK,
     summary="Update current user's account and personal information",

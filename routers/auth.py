@@ -360,3 +360,71 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
         status_code=status.HTTP_200_OK,
         content={"status": "success", "message": "Logout successful; token revoked."},
     )
+
+router.put(
+    "/profile",
+    status_code=status.HTTP_200_OK,
+    summary="Update current user's account and personal information",
+    response_model=UserResponseSchema,
+)
+def update_profile(
+    data: UpdateProfileSchema,
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    1) Update Users table fields (email, phone, name).
+    2) Upsert into PersonalInformation for the same user.
+    3) Return the updated user + merged personal info URL fields.
+    """
+    # --- 1) Update basic user info ---
+    user = db.query(Users).get(current_user.id)
+    if data.email:
+        user.email = data.email
+    if data.phone_number:
+        user.phone_number = data.phone_number
+    if data.first_name:
+        user.first_name = data.first_name
+    if data.last_name:
+        user.last_name = data.last_name
+    db.add(user)
+
+    # --- 2) Upsert personal information ---
+    pi = db.query(PersonalInformation).filter_by(user_id=user.id).first()
+    if not pi:
+        pi = PersonalInformation(user_id=user.id)
+    # apply any provided personal-info fields
+    for field in (
+        "bio", "current_employer", "self_employed", "latest_education_level",
+        "address", "profession_id", "dob", "start_date", "end_date",
+        "faculty_id", "country_id", "department", "gender", "status"
+    ):
+        value = getattr(data, field, None)
+        if value is not None:
+            setattr(pi, field, value)
+    db.add(pi)
+
+    db.commit()
+    db.refresh(user)
+    db.refresh(pi)
+
+    # --- 3) Build response payload ---
+    profile_payload = PersonalInformationSchema.model_validate(pi).model_dump()
+    user_payload = {
+        "id": user.id,
+        "email": user.email,
+        "student_id": user.student_id,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone_number": user.phone_number,
+        "profile": profile_payload,
+    }
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": "Your profile has been updated.",
+            "user": user_payload,
+        },
+    )

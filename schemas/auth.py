@@ -114,16 +114,13 @@ class UpdateProfileSchema(BaseModel):
     # --- Account fields ---
     email: Optional[EmailStr] = Field(None, description="New email address")
     phone_number: Optional[str] = Field(
-        None,
-        description="New phone number in international format, e.g. +250788123456"
+        None, description="New phone number in international format"
     )
-    first_name: Optional[str] = Field(None, description="Updated first name")
-    last_name: Optional[str] = Field(None, description="Updated last name")
 
     # --- Personal information fields ---
     bio: Optional[str] = Field(None, description="Short biography or personal statement")
     current_employer: Optional[str] = Field(None, description="Current employer name")
-    self_employed: Optional[str] = Field(None, description="Self-employment details, if any")
+    self_employed: Optional[str] = Field(None, description="Self-employment details")
     latest_education_level: Optional[str] = Field(
         None, description="Highest education level achieved"
     )
@@ -136,14 +133,13 @@ class UpdateProfileSchema(BaseModel):
     country_id: Optional[str] = Field(None, description="ISO code of the country")
     department: Optional[str] = Field(None, description="Department name")
     gender: Optional[bool] = Field(None, description="Gender: true for male, false for female")
-    status: Optional[str] = Field(None, alias="status", description="Current status info")
+    status: Optional[str] = Field(None, description="Current status info")
 
     @validator("phone_number")
     def validate_phone(cls, v):
         if v is None:
             return v
-        pattern = re.compile(r"^\+?[1-9]\d{1,14}$")
-        if not pattern.match(v):
+        if not re.match(r"^\+?[1-9]\d{1,14}$", v):
             raise ValueError("Invalid phone number format")
         return v
 
@@ -155,18 +151,15 @@ class UpdateProfileSchema(BaseModel):
         return v
 
     class Config:
-        allow_population_by_field_name = True
         schema_extra = {
             "example": {
                 "email": "jane.doe@example.com",
                 "phone_number": "+250788123456",
-                "first_name": "Jane",
-                "last_name": "Doe",
-                "bio": "Passionate software engineer and AUCA alum.",
-                "current_employer": "TechCorp Inc.",
+                "bio": "AUCA alum and software engineer.",
+                "current_employer": "TechCorp",
                 "self_employed": None,
-                "latest_education_level": "Master’s in Computer Science",
-                "address": "123 Avenue of the Arts, Kigali",
+                "latest_education_level": "MSc Computer Science",
+                "address": "123 Avenue, Kigali",
                 "profession_id": 4,
                 "dob": "1990-05-15",
                 "start_date": "2025-01-01",

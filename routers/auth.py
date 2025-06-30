@@ -365,21 +365,17 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
 @router.put(
     "/profile",
     status_code=status.HTTP_200_OK,
-    summary="Upsert current user's account & personal profile",
+    summary="Update current user's account & personal data (no photo)",
 )
-async def update_profile(
-    data: UpdateProfileSchema = Depends(),
-    photo: UploadFile | None = File(None, description="New profile photo"),
+def update_profile(
+    data: UpdateProfileSchema = Body(...),
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    - Updates only the authenticated user's email & phone.
-    - If no PersonalInformation exists: requires bio & address to create one.
-    - If PersonalInformation exists: updates any supplied fields.
-    - Photo is optional and nullable.
+    - JSON-only update of email, phone, bio, address, etc.
+    - Upserts PersonalInformation: creates if missing (requires bio & address), otherwise updates.
     """
-    # 1) Update Users table
     user = db.get(Users, current_user.id)
     if data.email:
         user.email = data.email
@@ -387,10 +383,8 @@ async def update_profile(
         user.phone_number = data.phone_number
     db.add(user)
 
-    # 2) Fetch existing profile
     pi = db.query(PersonalInformation).filter_by(user_id=user.id).first()
-
-    # 3) If no profile exists, create one with required fields
+    # create if missing
     if not pi:
         if data.bio is None or data.address is None:
             raise HTTPException(
@@ -404,8 +398,7 @@ async def update_profile(
             user_id=user.id,
             bio=data.bio,
             address=data.address,
-            photo=None,  # nullable
-            # initialize optional fields if present
+            photo=None,
             current_employer=data.current_employer,
             self_employed=data.self_employed,
             latest_education_level=data.latest_education_level,
@@ -416,11 +409,11 @@ async def update_profile(
             faculty_id=data.faculty_id,
             country_id=data.country_id,
             department=data.department,
-            gender=data.gender if data.gender is not None else False,
+            gender=data.gender,
             status=data.status,
         )
     else:
-        # 4) Update existing profile fields if provided
+        # update existing
         for field in (
             "bio", "address", "current_employer", "self_employed", "latest_education_level",
             "profession_id", "dob", "start_date", "end_date",
@@ -430,24 +423,6 @@ async def update_profile(
             if val is not None:
                 setattr(pi, field, val)
 
-    # 5) Handle optional new photo
-    if photo:
-        ext = os.path.splitext(photo.filename)[1] or ".jpg"
-        filename = f"user_{user.id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
-        dest_path = os.path.join(UPLOAD_DIR, filename)
-
-        contents = await photo.read()
-        buf = BytesIO(contents)
-        try:
-            img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
-            img.save(dest_path, quality=85)
-        except UnidentifiedImageError:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                detail="Uploaded file is not a valid image."
-            )
-        pi.photo = f"/uploads/personal_information/{filename}"
-
     db.add(pi)
     db.commit()
     db.refresh(user)
@@ -456,7 +431,7 @@ async def update_profile(
         status_code=status.HTTP_200_OK,
         content={
             "status": "success",
-            "message": "Your profile has been successfully created/updated.",
+            "message": "Your profile data has been saved.",
             "user": {
                 "id": user.id,
                 "email": user.email,
@@ -466,5 +441,55 @@ async def update_profile(
                 "phone_number": user.phone_number,
                 "photo_url": pi.photo,
             },
+        },
+    )
+
+
+@router.put(
+    "/profile/photo",
+    status_code=status.HTTP_200_OK,
+    summary="Upload or replace current user's profile photo",
+)
+async def update_profile_photo(
+    photo: UploadFile = File(..., description="New profile photo (1270×720 will be auto-crop)"),
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    - Multipart form upload of a single 'photo' file.
+    - Requires an existing PersonalInformation row; 404 if none.
+    """
+    pi = db.query(PersonalInformation).filter_by(user_id=current_user.id).first()
+    if not pi:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No profile found; please create profile data before uploading a photo."
+        )
+
+    ext = os.path.splitext(photo.filename)[1] or ".jpg"
+    filename = f"user_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
+    dest = os.path.join(UPLOAD_DIR, filename)
+
+    contents = await photo.read()
+    buf = BytesIO(contents)
+    try:
+        img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+        img.save(dest, quality=85)
+    except UnidentifiedImageError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is not a valid image."
+        )
+
+    pi.photo = f"/uploads/personal_information/{filename}"
+    db.add(pi)
+    db.commit()
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content={
+            "status": "success",
+            "message": "Profile photo updated.",
+            "photo_url": pi.photo,
         },
     )

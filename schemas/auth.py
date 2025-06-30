@@ -106,3 +106,75 @@ class VerifyTokenResponse(BaseModel):
 class LogoutResponse(BaseModel):
     status: str
     message: str
+
+# ----------------------------------------
+# Update current user's account & profile
+# ----------------------------------------
+class UpdateProfileSchema(BaseModel):
+    # --- Account fields ---
+    email: Optional[EmailStr] = Field(None, description="New email address")
+    phone_number: Optional[str] = Field(
+        None,
+        description="New phone number in international format, e.g. +250788123456"
+    )
+    first_name: Optional[str] = Field(None, description="Updated first name")
+    last_name: Optional[str] = Field(None, description="Updated last name")
+
+    # --- Personal information fields ---
+    bio: Optional[str] = Field(None, description="Short biography or personal statement")
+    current_employer: Optional[str] = Field(None, description="Current employer name")
+    self_employed: Optional[str] = Field(None, description="Self-employment details, if any")
+    latest_education_level: Optional[str] = Field(
+        None, description="Highest education level achieved"
+    )
+    address: Optional[str] = Field(None, description="Current mailing address")
+    profession_id: Optional[int] = Field(None, description="ID of the profession")
+    dob: Optional[datetime.date] = Field(None, description="Date of birth")
+    start_date: Optional[datetime.date] = Field(None, description="Profile start date")
+    end_date: Optional[datetime.date] = Field(None, description="Profile end date")
+    faculty_id: Optional[int] = Field(None, description="ID of the faculty")
+    country_id: Optional[str] = Field(None, description="ISO code of the country")
+    department: Optional[str] = Field(None, description="Department name")
+    gender: Optional[bool] = Field(None, description="Gender: true for male, false for female")
+    status: Optional[str] = Field(None, alias="status", description="Current status info")
+
+    @validator("phone_number")
+    def validate_phone(cls, v):
+        if v is None:
+            return v
+        pattern = re.compile(r"^\+?[1-9]\d{1,14}$")
+        if not pattern.match(v):
+            raise ValueError("Invalid phone number format")
+        return v
+
+    @validator("end_date")
+    def check_dates(cls, v, values):
+        start = values.get("start_date")
+        if v and start and v < start:
+            raise ValueError("end_date cannot be earlier than start_date")
+        return v
+
+    class Config:
+        allow_population_by_field_name = True
+        schema_extra = {
+            "example": {
+                "email": "jane.doe@example.com",
+                "phone_number": "+250788123456",
+                "first_name": "Jane",
+                "last_name": "Doe",
+                "bio": "Passionate software engineer and AUCA alum.",
+                "current_employer": "TechCorp Inc.",
+                "self_employed": None,
+                "latest_education_level": "Master’s in Computer Science",
+                "address": "123 Avenue of the Arts, Kigali",
+                "profession_id": 4,
+                "dob": "1990-05-15",
+                "start_date": "2025-01-01",
+                "end_date": None,
+                "faculty_id": 2,
+                "country_id": "RWA",
+                "department": "Computer Science",
+                "gender": True,
+                "status": "Active"
+            }
+        }

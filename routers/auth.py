@@ -369,17 +369,15 @@ def logout(current=Depends(get_current_user), db: Session = Depends(get_db)):
 )
 async def update_profile(
     data: UpdateProfileSchema = Depends(),
-    photo: UploadFile | None = File(
-        None, description="New profile photo (1270×720 will be auto-crop)"
-    ),
+    photo: UploadFile | None = File(None, description="New profile photo"),
     current_user: Users = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     - Updates only the authenticated user's email & phone.
-    - If the user already has a PersonalInformation row, updates it;
-      otherwise inserts a new one (with a non-null placeholder photo).
-    - Optional photo upload is resized to 1270×720.
+    - If no PersonalInformation exists: requires bio & address to create one.
+    - If PersonalInformation exists: updates any supplied fields.
+    - Photo is optional and nullable.
     """
     # 1) Update Users table
     user = db.get(Users, current_user.id)
@@ -389,18 +387,51 @@ async def update_profile(
         user.phone_number = data.phone_number
     db.add(user)
 
-    # 2) Fetch or create PersonalInformation
+    # 2) Fetch existing profile
     pi = db.query(PersonalInformation).filter_by(user_id=user.id).first()
+
+    # 3) If no profile exists, create one with required fields
     if not pi:
-        # photo is non-nullable, so we initialize with a placeholder empty string
+        if data.bio is None or data.address is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "error": "missing_fields",
+                    "message": "Both 'bio' and 'address' are required to create your profile."
+                },
+            )
         pi = PersonalInformation(
             user_id=user.id,
-            photo=""  
+            bio=data.bio,
+            address=data.address,
+            photo=None,  # nullable
+            # initialize optional fields if present
+            current_employer=data.current_employer,
+            self_employed=data.self_employed,
+            latest_education_level=data.latest_education_level,
+            profession_id=data.profession_id,
+            dob=data.dob,
+            start_date=data.start_date,
+            end_date=data.end_date,
+            faculty_id=data.faculty_id,
+            country_id=data.country_id,
+            department=data.department,
+            gender=data.gender if data.gender is not None else False,
+            status=data.status,
         )
+    else:
+        # 4) Update existing profile fields if provided
+        for field in (
+            "bio", "address", "current_employer", "self_employed", "latest_education_level",
+            "profession_id", "dob", "start_date", "end_date",
+            "faculty_id", "country_id", "department", "gender", "status"
+        ):
+            val = getattr(data, field)
+            if val is not None:
+                setattr(pi, field, val)
 
-    # 3) Handle optional new photo
+    # 5) Handle optional new photo
     if photo:
-        # Build a unique filename
         ext = os.path.splitext(photo.filename)[1] or ".jpg"
         filename = f"user_{user.id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
         dest_path = os.path.join(UPLOAD_DIR, filename)
@@ -415,18 +446,7 @@ async def update_profile(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Uploaded file is not a valid image."
             )
-        # store the relative URL
         pi.photo = f"/uploads/personal_information/{filename}"
-
-    # 4) Update all other allowed profile fields
-    for field in (
-        "bio", "current_employer", "self_employed", "latest_education_level",
-        "address", "profession_id", "dob", "start_date", "end_date",
-        "faculty_id", "country_id", "department", "gender", "status"
-    ):
-        val = getattr(data, field)
-        if val is not None:
-            setattr(pi, field, val)
 
     db.add(pi)
     db.commit()
@@ -436,7 +456,7 @@ async def update_profile(
         status_code=status.HTTP_200_OK,
         content={
             "status": "success",
-            "message": "Your profile has been created/updated.",
+            "message": "Your profile has been successfully created/updated.",
             "user": {
                 "id": user.id,
                 "email": user.email,

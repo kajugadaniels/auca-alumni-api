@@ -23,6 +23,7 @@ from routers import (
     departments,
     certifications,
     discussions,
+    donations,
 )
 
 # Auto-create tables (or manage migrations externally)

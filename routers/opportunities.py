@@ -224,6 +224,9 @@ async def add_opportunity(
         user=OpportunityUserSchema.model_validate(user),
     )
 
+# ------------------------------------------------------------------------
+# GET /opportunities/{op_id}
+# ------------------------------------------------------------------------
 @router.get(
     "/{op_id}",
     response_model=OpportunitySchema,
@@ -239,102 +242,21 @@ def get_opportunity(
     if not op:
         raise HTTPException(status_code=404, detail="Opportunity not found")
 
-    # 2) Fetch user
+    # 2) Fetch (or synthesize) user
     user = db.query(Users).get(op.user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    # 3) Build photo URL
-    base = str(request.base_url).rstrip("/")
-    photo_url = f"{base}{op.photo}"
-
-    return OpportunitySchema(
-        **{
-            **op.__dict__,
-            "photo": photo_url,
-            "user": OpportunityUserSchema.model_validate(user),
-        }
-    )
-
-@router.put(
-    "/{op_id}/update",
-    response_model=OpportunitySchema,
-    summary="Update an existing opportunity by ID",
-)
-async def update_opportunity(
-    op_id: int,
-    request: Request,
-    title: str = Form(..., description="Updated title"),
-    description: str = Form(..., description="Updated description"),
-    date: datetime.date = Form(..., description="Updated date"),
-    status: Optional[str] = Form(None),
-    link: Optional[str] = Form(None),
-    photo: Optional[UploadFile] = File(None),
-    db: Session = Depends(get_db),
-):
-    # 1) Fetch
-    op = db.query(Opportunities).get(op_id)
-    if not op:
-        raise HTTPException(status_code=404, detail="Opportunity not found")
-
-    # 2) Validate metadata
-    data = CreateOpportunitySchema(
-        title=title,
-        description=description,
-        date=date,
-        user_id=op.user_id,
-        status=status,
-        link=link,
-    )
-
-    # 3) Prevent duplicate
-    if (
-        db.query(Opportunities)
-        .filter(
-            Opportunities.id != op_id,
-            Opportunities.title == data.title,
-            Opportunities.date == data.date,
-            Opportunities.user_id == op.user_id,
+        user_data = OpportunityUserSchema(
+            id=0,
+            email="N/A",
+            first_name="N/A",
+            last_name="N/A",
+            phone_number="N/A",
+            student_id=0,
         )
-        .first()
-    ):
-        raise HTTPException(status_code=400, detail="Duplicate opportunity")
+    else:
+        user_data = OpportunityUserSchema.model_validate(user)
 
-    # 4) Update fields
-    op.title = data.title
-    op.description = data.description
-    op.date = data.date
-    op.status = data.status
-    op.link = data.link
-
-    # 5) Handle optional new photo
-    if photo:
-        old_path = os.path.join(os.getcwd(), op.photo.lstrip("/"))
-        if os.path.isfile(old_path):
-            os.remove(old_path)
-
-        slug = "".join(c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_")
-        date_str = data.date.strftime("%Y%m%d")
-        ext = os.path.splitext(photo.filename)[1] or ".jpg"
-        filename = f"{slug}_{date_str}{ext}"
-        fp = os.path.join(UPLOAD_DIR, filename)
-
-        buf = BytesIO(await photo.read())
-        try:
-            img = Image.open(buf)
-            img = img.convert("RGB")
-            img = img.resize((1270, 720), Image.LANCZOS)
-            img.save(fp, quality=85)
-        except UnidentifiedImageError:
-            raise HTTPException(status_code=400, detail="Invalid image file")
-
-        op.photo = f"/uploads/opportunities/{filename}"
-
-    db.commit()
-    db.refresh(op)
-
-    # 6) Response
-    user = db.query(Users).get(op.user_id)
+    # 3) Build full photo URL
     base = str(request.base_url).rstrip("/")
     photo_url = f"{base}{op.photo}"
 
@@ -342,7 +264,7 @@ async def update_opportunity(
         **{
             **op.__dict__,
             "photo": photo_url,
-            "user": OpportunityUserSchema.model_validate(user),
+            "user": user_data,
         }
     )
 

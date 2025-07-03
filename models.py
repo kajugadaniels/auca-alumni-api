@@ -1,5 +1,5 @@
 from database import Base
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime, Boolean, ForeignKey, func
+from sqlalchemy import Column, Integer, BigInteger, String, Text, Date, DateTime, Boolean, ForeignKey, func, Numeric
 
 class Certifications(Base):
     __tablename__ = "certifications"
@@ -543,4 +543,41 @@ class Discussions(Base):
         nullable=False,
         default=func.now(),
         server_default=func.now(),
+    )
+
+class Donations(Base):
+    """
+    Stores monetary donations made by users.
+
+    Fields
+    ------
+    id          : primary-key (bigint, auto-increment)
+    user_id     : ID of the donating user  ➜ FK → users.id
+    name        : Donor’s name (redundant, stored at payment time)
+    email       : Donor’s email
+    amount      : Donation amount, 2-decimal precision
+    message     : Optional note left by the donor
+    created_at  : Timestamp when the record is inserted
+    updated_at  : Timestamp auto-updated on every change
+    """
+    __tablename__ = "donations"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=False)
+    amount = Column(Numeric(12, 2), nullable=False)
+    message = Column(Text)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        onupdate=func.now(),
     )

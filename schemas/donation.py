@@ -36,6 +36,10 @@ class DonationSchema(BaseModel):
 # ----------- list out ------------
 class DonationListResponse(BaseModel):
     total: int
+    page: int
+    page_size: int
+    next_page: Optional[str]
+    prev_page: Optional[str]
     items: List[DonationSchema]
 
     model_config = {"from_attributes": True}

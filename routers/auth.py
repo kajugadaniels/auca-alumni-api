@@ -20,6 +20,7 @@ from schemas.auth import (
     VerifyTokenResponse,
     LogoutResponse,
     UpdateProfileSchema,
+    PersonalInformationResponseSchema,
 )
 from utils.security import create_access_token, verify_password, decode_access_token
 
@@ -330,12 +331,18 @@ def verify_token(
     Check if the provided JWT is valid, then return both the
     user's core fields and any extended personal information.
     """
-    # Attempt to load personal_information record, if it exists
+    # load personal_information, if any
     personal_info = (
         db.query(PersonalInformation)
         .filter(PersonalInformation.user_id == current_user.id)
         .first()
     )
+
+    # serialize via Pydantic
+    if personal_info:
+        pi_data = PersonalInformationResponseSchema.from_orm(personal_info).dict()
+    else:
+        pi_data = None
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
@@ -349,7 +356,7 @@ def verify_token(
                 "last_name": current_user.last_name,
                 "student_id": current_user.student_id,
                 "phone_number": current_user.phone_number,
-                "personal_information": personal_info,  # may be None
+                "personal_information": pi_data,
             },
         },
     )

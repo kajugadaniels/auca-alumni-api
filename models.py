@@ -521,3 +521,26 @@ class RevokedToken(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     jti = Column(String(36), unique=True, nullable=False)
     revoked_at = Column(DateTime, nullable=False, server_default=func.now())
+
+class Discussions(Base):
+    """
+    Stores one message per row in a free-form discussion thread.
+
+    Fields
+    ------
+    id          : primary-key (bigint, auto-increment)
+    user_id     : ID of the authoring user  ➜  FK → users.id  (no cascade in ORM)
+    message     : the message body
+    created_at  : timestamp (server-side default = NOW)
+    """
+    __tablename__ = "discussions"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, ForeignKey("users.id"), nullable=False)
+    message = Column(Text, nullable=False)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+    )

@@ -20,6 +20,7 @@ from schemas.auth import (
     VerifyTokenResponse,
     LogoutResponse,
     UpdateProfileSchema,
+    UserWithPersonalInfoSchema,
     PersonalInformationResponseSchema,
 )
 from utils.security import create_access_token, verify_password, decode_access_token
@@ -331,33 +332,38 @@ def verify_token(
     Check if the provided JWT is valid, then return both the
     user's core fields and any extended personal information.
     """
-    # load personal_information, if any
+    # 1) Load personal_information, if it exists
     personal_info = (
         db.query(PersonalInformation)
         .filter(PersonalInformation.user_id == current_user.id)
         .first()
     )
 
-    # serialize via Pydantic
-    if personal_info:
-        pi_data = PersonalInformationResponseSchema.from_orm(personal_info).dict()
-    else:
-        pi_data = None
+    # 2) Convert to Pydantic (or None)
+    pi_schema = (
+        PersonalInformationResponseSchema.from_orm(personal_info)
+        if personal_info
+        else None
+    )
 
+    # 3) Build full user payload
+    user_payload = UserWithPersonalInfoSchema(
+        id=current_user.id,
+        email=current_user.email,
+        student_id=current_user.student_id,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        phone_number=current_user.phone_number,
+        personal_information=pi_schema,
+    )
+
+    # 4) Return as plain dict so JSONResponse can serialize it
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "success",
             "message": "Token is valid.",
-            "user": {
-                "id": current_user.id,
-                "email": current_user.email,
-                "first_name": current_user.first_name,
-                "last_name": current_user.last_name,
-                "student_id": current_user.student_id,
-                "phone_number": current_user.phone_number,
-                "personal_information": pi_data,
-            },
+            "user": user_payload.dict(),  
         },
     )
 

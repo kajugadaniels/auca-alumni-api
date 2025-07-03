@@ -320,27 +320,36 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 @router.get(
     "/verify-token",
     response_model=VerifyTokenResponse,
-    summary="Verify access token validity",
+    summary="Verify access token validity and fetch full profile",
 )
 def verify_token(
-    current_user: Users = Depends(get_current_user)
+    current_user: Users = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
-    Endpoint to check if a token is valid. Returns the current user's basic info.
-    Expired tokens will be rejected by the dependency.
+    Check if the provided JWT is valid, then return both the
+    user's core fields and any extended personal information.
     """
+    # Attempt to load personal_information record, if it exists
+    personal_info = (
+        db.query(PersonalInformation)
+        .filter(PersonalInformation.user_id == current_user.id)
+        .first()
+    )
+
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
             "status": "success",
             "message": "Token is valid.",
             "user": {
-                "id": current_user.id,  # Now current_user is an actual user object
+                "id": current_user.id,
                 "email": current_user.email,
                 "first_name": current_user.first_name,
                 "last_name": current_user.last_name,
                 "student_id": current_user.student_id,
                 "phone_number": current_user.phone_number,
+                "personal_information": personal_info,  # may be None
             },
         },
     )

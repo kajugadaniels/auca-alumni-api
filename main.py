@@ -22,6 +22,7 @@ from routers import (
     executive_committees,
     departments,
     certifications,
+    discussions,
 )
 
 # Auto-create tables (or manage migrations externally)
@@ -166,4 +167,11 @@ app.include_router(
     certifications.router,
     prefix="/api",
     tags=["certifications"],
+)
+
+# Discussions
+app.include_router(
+    discussions.router,
+    prefix="/api",
+    tags=["discussions"],
 )

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer
+from fastapi.encoders import jsonable_encoder
 
 from database import get_db
 from models import *
@@ -339,15 +340,15 @@ def verify_token(
         .first()
     )
 
-    # 2) Convert to Pydantic (or None)
+    # 2) Convert ORM → Pydantic schema (or None)
     pi_schema = (
         PersonalInformationResponseSchema.from_orm(personal_info)
         if personal_info
         else None
     )
 
-    # 3) Build full user payload
-    user_payload = UserWithPersonalInfoSchema(
+    # 3) Build the combined user schema
+    user_schema = UserWithPersonalInfoSchema(
         id=current_user.id,
         email=current_user.email,
         student_id=current_user.student_id,
@@ -357,15 +358,14 @@ def verify_token(
         personal_information=pi_schema,
     )
 
-    # 4) Return as plain dict so JSONResponse can serialize it
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={
-            "status": "success",
-            "message": "Token is valid.",
-            "user": user_payload.dict(),  
-        },
-    )
+    # 4) JSON-encode to handle dates, then return
+    payload = {
+        "status": "success",
+        "message": "Token is valid.",
+        "user": jsonable_encoder(user_schema),
+    }
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=payload)
 
 @router.post(
     "/logout",

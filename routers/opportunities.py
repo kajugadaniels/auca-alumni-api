@@ -51,7 +51,7 @@ def list_opportunities(
     request: Request,
     *,
     db: Session = Depends(get_db),
-    page: int = Query(1, ge=1, description="Page number"),
+    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Filter by title or description"),
     sort_by: str = Query(
@@ -59,53 +59,65 @@ def list_opportunities(
         regex="^(id|date|created_at)$",
         description="Field to sort by",
     ),
-    order: str = Query(
-        "desc", regex="^(asc|desc)$", description="Sort direction"
-    ),
+    order: str = Query("desc", regex="^(asc|desc)$", description="Sort direction"),
 ) -> OpportunityListResponse:
-    # 1) Total count
-    total = db.query(func.count(Opportunities.id)).scalar()
+    """
+    Returns a paginated, sorted list of opportunities.
+    If the linked user record has been deleted, a placeholder user object
+    with `"N/A"` fields is returned instead of throwing 404.
+    """
 
-    # 2) Base query + optional search
-    q = db.query(Opportunities)
+    # 1️⃣ base query + optional search filter
+    query = db.query(Opportunities)
     if search:
         term = f"%{search.strip()}%"
-        q = q.filter(
-            Opportunities.title.ilike(term)
-            | Opportunities.description.ilike(term)
+        query = query.filter(
+            Opportunities.title.ilike(term) | Opportunities.description.ilike(term)
         )
 
-    # 3) Ordering
-    direction = asc if order == "asc" else desc
-    q = q.order_by(direction(getattr(Opportunities, sort_by)))
+    # 2️⃣ total AFTER filtering
+    total = query.count()
 
-    # 4) Pagination
+    # 3️⃣ ordering
+    direction = asc if order == "asc" else desc
+    query = query.order_by(direction(getattr(Opportunities, sort_by)))
+
+    # 4️⃣ pagination
     offset = (page - 1) * page_size
-    raw = q.offset(offset).limit(page_size).all()
-    if not raw and page != 1:
+    rows = query.offset(offset).limit(page_size).all()
+    if not rows and page != 1:
         raise HTTPException(status_code=404, detail="Page out of range")
 
-    # 5) Build response items
+    # 5️⃣ build response items
     base = str(request.base_url).rstrip("/")
     items = []
-    for op in raw:
-        # nested user lookup
+    for op in rows:
         user = db.query(Users).get(op.user_id)
+
+        # placeholder when user missing
         if not user:
-            # skip orphaned records silently
-            continue
-        photo_url = f"{base}{op.photo}"
+            user_data = OpportunityUserSchema(
+                id=0,
+                email="N/A",
+                first_name="N/A",
+                last_name="N/A",
+                phone_number="N/A",
+                student_id=0,
+            )
+        else:
+            user_data = OpportunityUserSchema.model_validate(user)
+
         items.append(
             OpportunitySchema(
                 **{
                     **op.__dict__,
-                    "photo": photo_url,
-                    "user": OpportunityUserSchema.model_validate(user),
+                    "photo": f"{base}{op.photo}",
+                    "user": user_data,
                 }
             )
         )
 
-    # 6) Navigation URLs
+    # 6️⃣ nav URLs
     def make_url(p: int) -> str:
         return str(request.url.include_query_params(page=p, page_size=page_size))
 

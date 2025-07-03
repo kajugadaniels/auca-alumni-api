@@ -94,13 +94,36 @@ class UserRegisterSchema(BaseModel):
         return v
 
 
-# ----------------------------------------
-# Token verification & logout
-# ----------------------------------------
+class PersonalInformationResponseSchema(BaseModel):
+    photo: Optional[str]
+    bio: str
+    current_employer: Optional[str]
+    self_employed: Optional[str]
+    latest_education_level: Optional[str]
+    address: str
+    profession_id: Optional[int]
+    dob: Optional[datetime.date]
+    start_date: Optional[datetime.date]
+    end_date: Optional[datetime.date]
+    faculty_id: Optional[int]
+    country_id: Optional[str]
+    department: Optional[str]
+    gender: bool
+    status: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class UserWithPersonalInfoSchema(UserResponseSchema):
+    personal_information: Optional[PersonalInformationResponseSchema]
+
+    model_config = {"from_attributes": True}
+
+
 class VerifyTokenResponse(BaseModel):
     status: str
     message: str
-    user: UserResponseSchema
+    user: UserWithPersonalInfoSchema
 
 
 class LogoutResponse(BaseModel):

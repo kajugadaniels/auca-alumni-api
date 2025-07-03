@@ -92,10 +92,8 @@ def list_opportunities(
         # nested user lookup
         user = db.query(Users).get(op.user_id)
         if not user:
-            raise HTTPException(
-                status_code=404,
-                detail={"error": "user_not_found", "message": f"User {op.user_id} not found"},
-            )
+            # skip orphaned records silently
+            continue
         photo_url = f"{base}{op.photo}"
         items.append(
             OpportunitySchema(

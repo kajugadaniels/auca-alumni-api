@@ -169,9 +169,14 @@ app.include_router(
     tags=["certifications"],
 )
 
-# Discussions
 app.include_router(
     discussions.router,
     prefix="/api",
     tags=["discussions"],
+)
+
+app.include_router(
+    donations.router,
+    prefix="/api",
+    tags=["donations"],
 )

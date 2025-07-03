@@ -268,6 +268,116 @@ def get_opportunity(
         }
     )
 
+# ------------------------------------------------------------------------
+# PUT /opportunities/{op_id}/update
+# ------------------------------------------------------------------------
+@router.put(
+    "/{op_id}/update",
+    response_model=OpportunitySchema,
+    summary="Update an existing opportunity by ID",
+)
+async def update_opportunity(
+    op_id: int,
+    request: Request,
+    title: str = Form(..., description="Updated title"),
+    description: str = Form(..., description="Updated description"),
+    date: datetime.date = Form(..., description="Updated date"),
+    status: Optional[str] = Form(None),
+    link: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    # 1) Fetch existing row
+    op = db.query(Opportunities).get(op_id)
+    if not op:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+
+    # 2) Auto-attach user if missing
+    if op.user_id is None:
+        op.user_id = current_user.id
+
+    # 3) Validate metadata (now using corrected user_id)
+    data = CreateOpportunitySchema(
+        title=title,
+        description=description,
+        date=date,
+        user_id=op.user_id,
+        status=status,
+        link=link,
+    )
+
+    # 4) Prevent duplicate
+    dup = (
+        db.query(Opportunities)
+        .filter(
+            Opportunities.id != op_id,
+            Opportunities.title == data.title,
+            Opportunities.date == data.date,
+            Opportunities.user_id == op.user_id,
+        )
+        .first()
+    )
+    if dup:
+        raise HTTPException(status_code=400, detail="Duplicate opportunity")
+
+    # 5) Apply basic field updates
+    op.title = data.title
+    op.description = data.description
+    op.date = data.date
+    op.status = data.status
+    op.link = data.link
+
+    # 6) Handle optional new photo
+    if photo:
+        old_path = os.path.join(os.getcwd(), op.photo.lstrip("/"))
+        if os.path.isfile(old_path):
+            os.remove(old_path)
+
+        slug = "".join(
+            c for c in data.title.lower().replace(" ", "_") if c.isalnum() or c == "_"
+        )
+        date_str = data.date.strftime("%Y%m%d")
+        ext = os.path.splitext(photo.filename)[1] or ".jpg"
+        filename = f"{slug}_{date_str}{ext}"
+        fp = os.path.join(UPLOAD_DIR, filename)
+
+        buf = BytesIO(await photo.read())
+        try:
+            img = Image.open(buf).convert("RGB").resize((1270, 720), Image.LANCZOS)
+            img.save(fp, quality=85)
+        except UnidentifiedImageError:
+            raise HTTPException(status_code=400, detail="Invalid image file")
+
+        op.photo = f"/uploads/opportunities/{filename}"
+
+    # 7) Commit changes
+    db.commit()
+    db.refresh(op)
+
+    # 8) Build response
+    user = db.query(Users).get(op.user_id)
+    if not user:
+        user_data = OpportunityUserSchema(
+            id=0,
+            email="N/A",
+            first_name="N/A",
+            last_name="N/A",
+            phone_number="N/A",
+            student_id=0,
+        )
+    else:
+        user_data = OpportunityUserSchema.model_validate(user)
+
+    base = str(request.base_url).rstrip("/")
+    return OpportunitySchema(
+        **{
+            **op.__dict__,
+            "photo": f"{base}{op.photo}",
+            "user": user_data,
+        }
+    )
+
 @router.delete(
     "/{op_id}/delete",
     status_code=status.HTTP_200_OK,
